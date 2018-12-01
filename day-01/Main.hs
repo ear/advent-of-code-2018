@@ -1,6 +1,3 @@
-{-# language TypeApplications #-}
-{-# language LambdaCase #-}
-
 module Main where
 
 import Data.Set (Set)
