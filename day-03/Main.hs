@@ -5,14 +5,16 @@ module Main where
 import Data.List (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 main :: IO ()
 main = do
   input <- readFile "input.txt"
   let byID = parse input
-  let fabric = draw byID
-  -- print . Map.size . Map.filter ((>1) . length) $ fabric
-  mapM_ print $ free fabric byID
+  let (fabric,intact) = draw byID
+  print . Map.size . Map.filter ((>1) . length) $ fabric
+  print intact
 
 -- String -> Map ID ( (x,y) , (w,h) )
 parse = toMap . map words . lines . map clean
@@ -27,21 +29,27 @@ parse = toMap . map words . lines . map clean
 rect (x,y) (w,h) = [(x_,y_) | x_ <- [x..x+w-1], y_ <- [y..y+h-1]]
 
 -- Map ID ((x,y),(w,h)) -> Map (x,y) ???
-draw m = draw' m
+draw m = (fabric,intact)
   where
     (maxX,maxY) = foldl collect (0,0) m
     collect (mx,my) ((x,y),(w,h)) = (max mx (x+w),max my (y+h))
 
     coords = [(x,y) | x <- [0..maxX-1], y <- [0..maxY-1]]
 
-    draw' = Map.foldlWithKey' drawOne Map.empty
-    --drawOne fabric = foldl' (flip $ Map.alter drawCoord) fabric . uncurry rect
-    drawOne fabric claim = foldl' (collectCoord claim) fabric . uncurry rect
-    collectCoord claim = flip $ Map.alter $ drawCoord claim
+    draw' = Map.foldlWithKey' drawClaim Map.empty
+
+    -- f = fabric; c = claim id; r = claim rectangle (x,y)s
+    drawClaim f c (uncurry rect -> r) = foldl' (flip $ Map.alter $ drawCoord c) f r
+
     drawCoord c Nothing   = Just [c]
     drawCoord c (Just cs) = Just (c:cs)
 
--- Map (x,y) [ID] -> Map ID ((x,y),(w,h)) -> [ID]
-free fabric = Map.filterWithKey noOverlap
-  where
-    noOverlap rectID (uncurry rect -> coords) = all (null . tail) . Map.elems . Map.filterWithKey (\k _ -> k `elem` coords) $ fabric
+    fabric = draw' m
+
+    intact = Map.keys . Map.filterWithKey isIntact $ m
+
+    -- ID -> ((x,y),(w,h)) -> Bool
+    isIntact c (Set.fromList . uncurry rect -> r) =
+      Map.null . Map.filter hasOverlap . Map.restrictKeys fabric $ r
+
+    hasOverlap = not . null . tail
