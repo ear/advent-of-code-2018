@@ -1,4 +1,5 @@
 {-# language TypeApplications #-}
+{-# language ViewPatterns #-}
 module Main where
 
 import Data.List (foldl')
@@ -10,7 +11,8 @@ main = do
   input <- readFile "input.txt"
   let byID = parse input
   let fabric = draw byID
-  print . Map.size . Map.filter (>1) $ fabric
+  -- print . Map.size . Map.filter ((>1) . length) $ fabric
+  mapM_ print $ free fabric byID
 
 -- String -> Map ID ( (x,y) , (w,h) )
 parse = toMap . map words . lines . map clean
@@ -22,6 +24,8 @@ parse = toMap . map words . lines . map clean
       where
         fromRect [i,x,y,w,h] = (i,((x,y),(w,h)))
 
+rect (x,y) (w,h) = [(x_,y_) | x_ <- [x..x+w-1], y_ <- [y..y+h-1]]
+
 -- Map ID ((x,y),(w,h)) -> Map (x,y) ???
 draw m = draw' m
   where
@@ -30,10 +34,14 @@ draw m = draw' m
 
     coords = [(x,y) | x <- [0..maxX-1], y <- [0..maxY-1]]
 
-    rect (x,y) (w,h) = [(x_,y_) | x_ <- [x..x+w-1], y_ <- [y..y+h-1]]
+    draw' = Map.foldlWithKey' drawOne Map.empty
+    --drawOne fabric = foldl' (flip $ Map.alter drawCoord) fabric . uncurry rect
+    drawOne fabric claim = foldl' (collectCoord claim) fabric . uncurry rect
+    collectCoord claim = flip $ Map.alter $ drawCoord claim
+    drawCoord c Nothing   = Just [c]
+    drawCoord c (Just cs) = Just (c:cs)
 
-    draw' = Map.foldl' drawOne Map.empty
-    drawOne fabric = foldl' (flip $ Map.alter drawCoord) fabric . uncurry rect
-    drawCoord Nothing = Just 1
-    drawCoord (Just n) = Just (n+1)
-
+-- Map (x,y) [ID] -> Map ID ((x,y),(w,h)) -> [ID]
+free fabric = Map.filterWithKey noOverlap
+  where
+    noOverlap rectID (uncurry rect -> coords) = all (null . tail) . Map.elems . Map.filterWithKey (\k _ -> k `elem` coords) $ fabric
