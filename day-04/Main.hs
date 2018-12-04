@@ -27,6 +27,12 @@ main = do
   print r
   putStr "product: "
   print $ gid * fst r
+  let guards = byMinute sleeps
+  let (gid,min,_) = mostAsleepOnSameMin guards
+  putStr "sleepiest' guard (gid,minute): "
+  print (gid,min)
+  putStr "product': "
+  print $ gid * min
 
 data Sleep = Wake | Fall
   deriving (Show)
@@ -150,25 +156,32 @@ stats (e:es) = fst $ foldl' stopwatch (Map.empty,e) es
         collect mins Nothing     = Just $ mins
         collect mins (Just prev) = Just $ prev ++ mins
 
-    --  | otherwise = (increment m i (timeDiff pt t), next) -- save sleep t
-
-    -- increment m i n = Map.alter (add n) i m
-    --   where
-    --     add n Nothing = Just n
-    --     add n (Just n') = Just (n+n')
-
-timeDiff :: Time -> Time -> Int
-timeDiff l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
-  case compare l r of
-    LT -> if (ry-ly > 0) || (rm-lm > 0) || (rd-ld > 1)
-            then error "subtracting times farther than 1 day"
-            else case rd-ld of
-                   0 -> traceShow ('+',rmm-lmm,l,r) $ rmm-lmm
-                   1 -> traceShow ('^',rmm+(60-lmm),l,r) $ rmm+(60-lmm)
-    _  -> traceShow (l,r) $ error "subtracting wrongly ordered times"
-
 timeSpan :: Time -> Time -> [Int]
 timeSpan l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
   case rd-ld of
     0 -> [lmm..rmm-1]
     1 -> [lmm..59] ++ [0..rmm-1]
+
+-- from: guard id -> [minutes asleep]
+--   to:   minute -> [guard ids asleep]
+byMinute :: Map Int [Int] -> Map Int [Int]
+byMinute
+  = Map.fromListWith (++)
+  . map (\t -> (snd t, [fst t]))
+  . concatMap (\(gid,mins) -> map (\min -> (gid,min)) mins)
+  . Map.toList
+
+-- returns: (guard id, max minute, minute's count)
+mostAsleepOnSameMin :: Map Int [Int] -> (Int,Int,Int)
+mostAsleepOnSameMin = Map.foldlWithKey' walk (-1,-1,0)
+  where
+    -- (i,m,c) = (guard id, max minute, minute's count)
+    -- m' = new minute in cosideration
+    walk (i,m,c) m' ids = ans
+      where
+        freqs = map (\xs -> (head xs, length xs)) . group . sort $ ids
+        -- i' = new guard id
+        -- c' = new minute count
+        (i',c') = maximumBy (comparing snd) freqs
+        ans | c' > c = (i',m',c')
+            | otherwise = (i,m,c)
