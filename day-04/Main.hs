@@ -1,14 +1,26 @@
 {-# language ViewPatterns #-}
 {-# language RecordWildCards #-}
-module Main where
+{-# language PatternSynonyms #-}
+module Main (main) where
+
+import Debug.Trace
 
 import Data.Ord
 import Data.List
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 main = do
   input <- lines <$> readFile "input.txt"
   let entries = computeIDs . sortBy entrySort . parse $ input
   mapM_ print entries
+  --let guards = aggregateByID entries
+  let sleeps = sleepy entries
+  Map.traverseWithKey (\k v -> print (k,v)) sleeps
+  let sleepiest = maximumBy (comparing snd) . Map.toList $ sleeps
+  putStr "sleepiest guard (id,mins): "
+  print sleepiest
+  return ()
 
 data Sleep = Wake | Fall
   deriving (Show)
@@ -19,27 +31,46 @@ data Time = Time
   , _d  :: Int   -- Day
   , _hh :: Int   -- Hour
   , _mm :: Int   -- Minute
-  }
+  } deriving (Ord, Eq)
+
+data Day = Day
+  { _dy :: Int
+  , _dm :: Int
+  , _dd :: Int
+  } deriving (Ord, Eq)
+
+toDay :: Time -> Day
+toDay (Time {..}) = Day _y _m _d
 
 instance Show Time where
   showsPrec _ (Time {..}) =
-    showsPrec 10 _y   . showChar '-' .
-    showsPad 2 10 _m  . showChar '-' .
-    showsPad 2 10 _d  . showChar ' ' .
-    showsPad 2 10 _hh . showChar ':' .
-    showsPad 2 10 _mm
-    where
-      showsPad len p x = showString (replicate n '0') . showsPrec p x
-        where
-          digits = length $ show x
-          n | len > digits = len - digits
-            | otherwise    = 0
+    --showsPrec 9 _y   . showChar '-' .
+    showsPad 2 9 _m  . showChar '-' .
+    showsPad 2 9 _d  . showChar ' ' .
+    showsPad 2 9 _hh . showChar ':' .
+    showsPad 2 9 _mm
+
+instance Show Day where
+  showsPrec _ (Day {..}) = showsPad 2 9 _dm . showChar '-' . showsPad 2 9 _dd
+
+showsPad len p x = showString (replicate n '0') . showsPrec p x
+  where
+    digits = length $ show x
+    n | len > digits = len - digits
+      | otherwise    = 0
 
 data Entry = Entry
   { _t :: Time  -- yyyy-mm-dd HH:MM
   , _i :: Int   -- ID
   , _s :: Sleep -- Wake/Fall
-  } deriving (Show)
+  }
+
+instance Show Entry where
+  showsPrec _ (Entry {..}) =
+    showString "<" .
+    showChar '"' . showsPrec 9 _t . showString "\" " .
+    showsPrec 9 _i . showString " " .
+    showsPrec 9 _s . showChar '>'
 
 -- parse :: [String] -> [Entry]
 parse = map (parseLine . words . clean)
@@ -76,4 +107,48 @@ computeIDs (e:es) = map fst $ scanl' walk (e,_i e) es
     walk (prevE,prevID) e
       | _i e == -1 = (e { _i = prevID }, prevID)
       | otherwise  = (e, _i e)
+
+aggregateByID :: [Entry] -> Map (Int) [Entry]
+aggregateByID = foldl' agg Map.empty
+  where
+    agg m e@(Entry {..}) = Map.alter (add e) (_i) m
+    add e Nothing = Just [e]
+    add e (Just es) = Just (e:es)
+
+pattern Awake  t i = Entry t i Wake
+pattern Asleep t i = Entry t i Fall
+
+sleepy :: [Entry] -> Map Int Int
+sleepy (e:es) = fst $ foldl' stopwatch (Map.empty,e) es
+  where
+    stopwatch (m,prev@(Awake  _ pi)) next@(Awake  _ i)
+      | pi /= i   = (m,next) -- guard change
+      | otherwise = (m,prev) -- keep the earliest awake time for a guard
+
+    stopwatch (m,prev@(Awake  _ pi)) next@(Asleep _ i)
+      | pi /= i   = error "wrong guard fell asleep"
+      | otherwise = (m,next) -- remember this fall asleep time
+
+    stopwatch (m,prev@(Asleep _ pi)) next@(Asleep _ i)
+      | pi /= i   = error "wrong guard keeps sleeping"
+      | otherwise = error "same guard sleeping twice?"
+
+    stopwatch (m,prev@(Asleep pt pi)) next@(Awake t i)
+      | pi /= i   = error "wrong guard woke up"
+      | otherwise = (increment m i (timeDiff pt t), next) -- save sleep t
+
+    increment m i n = Map.alter (add n) i m
+      where
+        add n Nothing = Just n
+        add n (Just n') = Just (n+n')
+
+timeDiff :: Time -> Time -> Int
+timeDiff l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
+  case compare l r of
+    LT -> if (ry-ly > 0) || (rm-lm > 0) || (rd-ld > 1)
+            then error "subtracting times farther than 1 day"
+            else case rd-ld of
+                   0 -> traceShow ('+',rmm-lmm,l,r) $ rmm-lmm
+                   1 -> traceShow ('^',rmm+(60-lmm),l,r) $ rmm+(60-lmm)
+    _  -> traceShow (l,r) $ error "subtracting wrongly ordered times"
 
