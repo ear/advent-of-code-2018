@@ -1,5 +1,5 @@
 {-# language ViewPatterns #-}
-{-# language NamedFieldPuns #-}
+{-# language RecordWildCards #-}
 module Main where
 
 import Data.Ord
@@ -19,7 +19,21 @@ data Time = Time
   , _d  :: Int   -- Day
   , _hh :: Int   -- Hour
   , _mm :: Int   -- Minute
-  } deriving (Show)
+  }
+
+instance Show Time where
+  showsPrec _ (Time {..}) =
+    showsPrec 10 _y   . showChar '-' .
+    showsPad 2 10 _m  . showChar '-' .
+    showsPad 2 10 _d  . showChar ' ' .
+    showsPad 2 10 _hh . showChar ':' .
+    showsPad 2 10 _mm
+    where
+      showsPad len p x = showString (replicate n '0') . showsPrec p x
+        where
+          digits = length $ show x
+          n | len > digits = len - digits
+            | otherwise    = 0
 
 data Entry = Entry
   { _t :: Time  -- yyyy-mm-dd HH:MM
