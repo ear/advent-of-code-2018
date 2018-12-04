@@ -15,12 +15,18 @@ main = do
   let entries = computeIDs . sortBy entrySort . parse $ input
   mapM_ print entries
   --let guards = aggregateByID entries
-  let sleeps = sleepy entries
-  Map.traverseWithKey (\k v -> print (k,v)) sleeps
-  let sleepiest = maximumBy (comparing snd) . Map.toList $ sleeps
+  let sleeps = stats entries
+  Map.traverseWithKey (\k v -> print (k,length v)) sleeps
+  let sleepiest = maximumBy (comparing (length . snd)) $ Map.toList sleeps
+  let (gid,mins) = sleepiest
   putStr "sleepiest guard (id,mins): "
-  print sleepiest
-  return ()
+  print (gid, length mins)
+  putStr "sleepiest minute (minute,count): "
+  let r = maximumBy (comparing snd)
+        . map (\n -> (head n, length n)) . group . sort $ mins
+  print r
+  putStr "product: "
+  print $ gid * fst r
 
 data Sleep = Wake | Fall
   deriving (Show)
@@ -118,8 +124,10 @@ aggregateByID = foldl' agg Map.empty
 pattern Awake  t i = Entry t i Wake
 pattern Asleep t i = Entry t i Fall
 
-sleepy :: [Entry] -> Map Int Int
-sleepy (e:es) = fst $ foldl' stopwatch (Map.empty,e) es
+-- compute list of minutes asleep for each guard id
+-- e.g. (10,[58,59,00,01,20,21,22])
+stats :: [Entry] -> Map Int [Int]
+stats (e:es) = fst $ foldl' stopwatch (Map.empty,e) es
   where
     stopwatch (m,prev@(Awake  _ pi)) next@(Awake  _ i)
       | pi /= i   = (m,next) -- guard change
@@ -135,12 +143,19 @@ sleepy (e:es) = fst $ foldl' stopwatch (Map.empty,e) es
 
     stopwatch (m,prev@(Asleep pt pi)) next@(Awake t i)
       | pi /= i   = error "wrong guard woke up"
-      | otherwise = (increment m i (timeDiff pt t), next) -- save sleep t
+      | otherwise = (track m i (timeSpan pt t), next) -- save sleeping mins
 
-    increment m i n = Map.alter (add n) i m
+    track m i mins = Map.alter (collect mins) i m
       where
-        add n Nothing = Just n
-        add n (Just n') = Just (n+n')
+        collect mins Nothing     = Just $ mins
+        collect mins (Just prev) = Just $ prev ++ mins
+
+    --  | otherwise = (increment m i (timeDiff pt t), next) -- save sleep t
+
+    -- increment m i n = Map.alter (add n) i m
+    --   where
+    --     add n Nothing = Just n
+    --     add n (Just n') = Just (n+n')
 
 timeDiff :: Time -> Time -> Int
 timeDiff l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
@@ -152,3 +167,8 @@ timeDiff l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
                    1 -> traceShow ('^',rmm+(60-lmm),l,r) $ rmm+(60-lmm)
     _  -> traceShow (l,r) $ error "subtracting wrongly ordered times"
 
+timeSpan :: Time -> Time -> [Int]
+timeSpan l@(Time ly lm ld lhh lmm) r@(Time ry rm rd rhh rmm) =
+  case rd-ld of
+    0 -> [lmm..rmm-1]
+    1 -> [lmm..59] ++ [0..rmm-1]
