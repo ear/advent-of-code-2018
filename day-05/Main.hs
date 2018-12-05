@@ -16,7 +16,9 @@ main = do
   -- print $ step input
   print $ T.length $ fixedPoint input
 
-units = T.groupBy ((==) `on` toLower)
+units = T.groupBy alternating
+
+alternating c c' = (isUpper c && isLower c') || (isLower c && isUpper c')
 
 react cs
   = case T.uncons cs of
