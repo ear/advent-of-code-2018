@@ -11,12 +11,24 @@ import Data.Function
 
 main = do
   input <- head . T.lines <$> T.readFile "input.txt"
-  print $ T.length input
-  -- print $ units input
-  -- print $ step input
   print $ T.length $ fixedPoint input
 
-units = T.groupBy alternating
+units cs
+  = case T.uncons cs of
+      Nothing -> []
+      Just (c,cs) | T.length cs == 0 -> [T.singleton c]
+      Just _  -> r : units rs
+        where
+          (r,rs) = takeWhileAlternating cs
+
+takeWhileAlternating :: Text -> (Text,Text)
+takeWhileAlternating text
+  = ans
+    where
+      Just (c,cs) = T.uncons text
+      n = length . takeWhile matching . zip (repeat $ toLower c) $ T.zip text $ T.tail text
+      matching (c,(a,b)) = c == toLower a && c == toLower b && alternating a b
+      ans = T.splitAt (n+1) text
 
 alternating c c'
   | toLower c == toLower c'
@@ -35,8 +47,3 @@ step = T.concat . map react . units
 fixedPoint input = fst $ head $ dropWhile (uncurry (/=)) $ zip ans (tail ans)
   where
     ans = iterate step input
-
--- react cs@(_:[]) = cs
--- react cs@(_:_:[]) = []
--- react (_:_:cs) = react cs
-
