@@ -18,7 +18,10 @@ main = do
 
 units = T.groupBy alternating
 
-alternating c c' = (isUpper c && isLower c') || (isLower c && isUpper c')
+alternating c c'
+  | toLower c == toLower c'
+    = (isUpper c && isLower c') || (isLower c && isUpper c')
+  | otherwise = False
 
 react cs
   = case T.uncons cs of
