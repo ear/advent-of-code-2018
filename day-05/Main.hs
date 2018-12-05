@@ -7,10 +7,15 @@ import Data.Char
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import qualified Data.List as L
 
 main = do
   input <- head . T.lines <$> T.readFile "input.txt"
-  print $ T.length $ fixedPoint input
+  --print $ T.length $ fixedPoint input
+  let table = improve input
+  mapM_ print table
+  putStr "shortest: "
+  print $ L.minimumBy (comparing snd) table
 
 units cs
   = case T.uncons cs of
@@ -45,3 +50,9 @@ step = T.concat . map react . units
 fixedPoint input = fst . head . dropWhile (uncurry (/=)) . zip ans . tail $ ans
   where
     ans = iterate step input
+
+improve input = stats
+  where
+    charset = map head . L.group . L.sort . map toLower . T.unpack $ input
+    without c = T.filter ((c /=) . toLower) input
+    stats = zip charset $ map (T.length . fixedPoint . without) charset
