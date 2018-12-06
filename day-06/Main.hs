@@ -2,9 +2,10 @@
 module Main where
 
 import qualified Data.List as L
-import Data.Map (Map)
+import Data.Map (Map, (!))
 import qualified Data.Map as M
 import Data.Foldable (for_)
+import Control.Applicative (liftA2)
 
 main :: IO ()
 main = do
@@ -13,7 +14,9 @@ main = do
   print e
   print (topleft e, bottomright e)
   let g = draw e input
-  printGrid g
+  -- printGrid g
+  M.traverseWithKey (\k v -> print (k,v)) . areas $ g
+  return ()
 
 
 -- Parsing
@@ -88,6 +91,10 @@ draw e cs = (e,grid)
     xys = coords (e,undefined)
     grid = M.fromAscList [(c,closest cs c) | c <- xys]
 
+onEdge :: Coord -> Grid -> Bool
+(x,y) `onEdge` ( ((xm,xM),(ym,yM)), _ )
+    = x == xm || x == xM || y == ym || y == yM
+
 
 
 -- Drawing a pretty picture
@@ -109,3 +116,22 @@ gridChar (_,m) c
       Nothing       -> '.'
       Just Nothing  -> '.'
       Just (Just i) -> toEnum . (i+) . fromEnum $ 'A'
+
+
+-- Areas
+
+-- Nothing = infinite area
+-- Just n  = area of size n
+type Areas = Map Int (Maybe Int)
+
+areas :: Grid -> Areas
+areas g@(_,gm) = ans
+  where
+    ans = L.foldl' walk M.empty (coords g)
+
+    walk m c | Just _ <- mi = count
+             | otherwise    = m
+      where
+        mi@(~(Just i)) = gm ! c
+        count | c `onEdge` g = M.insert i Nothing m
+              | otherwise    = M.insertWith (liftA2 (+)) i (Just 1) m
