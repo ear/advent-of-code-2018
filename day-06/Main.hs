@@ -20,10 +20,10 @@ main = do
   --printGrid g
   let as' = areas g
   --M.traverseWithKey (\k v -> print (k,v)) as'
-  --print . maxArea $ as'
+  print . maxArea $ as'
   let r = region 10000 input g
-  print $ length r
-  printRegion r
+  print . length $ r
+  --printRegion r
 
 
 -- Parsing
