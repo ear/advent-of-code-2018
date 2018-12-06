@@ -149,4 +149,4 @@ maxArea = maximum
 region :: Int -> [Coord] -> Grid -> Int
 region n cs g = length . filter inside . coords $ g
   where
-    inside c = and [manhattan c c' < n | c' <- cs]
+    inside c = sum [manhattan c c' | c' <- cs] < n
