@@ -15,7 +15,9 @@ main = do
   print (topleft e, bottomright e)
   let g = draw e input
   -- printGrid g
-  M.traverseWithKey (\k v -> print (k,v)) . areas $ g
+  let as' = areas g
+  M.traverseWithKey (\k v -> print (k,v)) as'
+  print . maxArea $ as'
   return ()
 
 
@@ -135,3 +137,6 @@ areas g@(_,gm) = ans
         mi@(~(Just i)) = gm ! c
         count | c `onEdge` g = M.insert i Nothing m
               | otherwise    = M.insertWith (liftA2 (+)) i (Just 1) m
+
+maxArea :: Areas -> Maybe Int
+maxArea = maximum
