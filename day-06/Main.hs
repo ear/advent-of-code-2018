@@ -83,6 +83,9 @@ rows ((xm,xM),(ym,yM)) = [ [ (x,y) | x <- [xm..xM] ] | y <- [ym..yM] ]
 coords :: Extent -> [Coord]
 coords = concat . rows
 
+coordsAsc :: Extent -> [Coord]
+coordsAsc ((xm,xM),(ym,yM)) = [(x,y) | x <- [xm..xM], y <- [ym..yM]]
+
 
 -- Grid
 
@@ -92,7 +95,7 @@ type Grid = (Extent, Map Coord (Maybe Int))
 draw :: Extent -> [Coord] -> Grid
 draw e cs = (e,grid)
   where
-    xys = coords e
+    xys = coordsAsc e
     grid = M.fromAscList [(c,closest cs c) | c <- xys]
 
 onEdge :: Coord -> Grid -> Bool
