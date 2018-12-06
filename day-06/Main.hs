@@ -16,8 +16,7 @@ main = do
   printGrid g
 
 
--- ( x , y )
-type Coord = (Int,Int)
+-- Parsing
 
 parse :: String -> Coord
 parse = (\[a,b]->(a,b)) . map read . words . map clean
@@ -25,6 +24,26 @@ parse = (\[a,b]->(a,b)) . map read . words . map clean
     clean ',' = ' '
     clean  c  =  c
 
+
+-- Coordinates
+
+-- ( x , y )
+type Coord = (Int,Int)
+
+closest :: [Coord] -> Coord -> Maybe Int
+closest cs c = ans
+  where
+    distances = map (manhattan c) cs
+    d = minimum distances
+    is = L.findIndices (d ==) distances
+    ans | [i] <- is = Just i
+        | otherwise = Nothing
+
+manhattan :: Coord -> Coord -> Int
+manhattan (x0,y0) (x1,y1) = abs (x1-x0) + abs (y1-y0)
+
+
+-- Extents
 
 -- ( (x min, x max), (y min, y max) )
 type Extent = ((Int,Int),(Int,Int))
@@ -48,8 +67,14 @@ topleft, bottomright :: Extent -> Coord
 topleft     ((x,_),(y,_)) = (x,y)
 bottomright ((_,x),(_,y)) = (x,y)
 
-coords :: Extent -> [Coord]
-coords e = [(x,y) | x <- xs, y <- ys]
+
+-- Grid
+
+-- Int = coordinates' index in the input
+type Grid = (Extent, Map Coord (Maybe Int))
+
+coords :: Grid -> [Coord]
+coords (e,_) = [(x,y) | x <- xs, y <- ys]
   where
     (xm,ym) = topleft e
     (xM,yM) = bottomright e
@@ -57,33 +82,15 @@ coords e = [(x,y) | x <- xs, y <- ys]
     xs = [xm..xM]
     ys = [ym..yM]
 
-
--- Int = coordinates' index in the input
-type Grid = (Extent, Map Coord (Maybe Int))
-
 draw :: Extent -> [Coord] -> Grid
 draw e cs = (e,grid)
   where
-    xys = coords e
+    xys = coords (e,undefined)
     grid = M.fromAscList [(c,closest cs c) | c <- xys]
 
-closest :: [Coord] -> Coord -> Maybe Int
-closest cs c = ans
-  where
-    distances = map (manhattan c) cs
-    d = minimum distances
-    is = L.findIndices (d ==) distances
-    ans | [i] <- is = Just i
-        | otherwise = Nothing
-
-manhattan :: Coord -> Coord -> Int
-manhattan (x0,y0) (x1,y1) = abs (x1-x0) + abs (y1-y0)
 
 
 -- Drawing a pretty picture
-
-gridExtent :: Grid -> Extent
-gridExtent (e,_) = e
 
 printGrid :: Grid -> IO ()
 printGrid g = do
@@ -92,7 +99,7 @@ printGrid g = do
       putChar (gridChar g (x,y))
     putChar '\n'
   where
-    xys = coords (gridExtent g)
+    xys = coords g
     xs = L.nub $ L.sort $ map fst xys
     ys = L.nub $ L.sort $ map snd xys
 
