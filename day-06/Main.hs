@@ -21,7 +21,8 @@ main = do
   let as' = areas g
   --M.traverseWithKey (\k v -> print (k,v)) as'
   --print . maxArea $ as'
-  print $ region 10000 input g
+  let r = region 10000 input g
+  print $ length r
 
 -- Parsing
 
@@ -55,7 +56,7 @@ manhattan (x0,y0) (x1,y1) = abs (x1-x0) + abs (y1-y0)
 -- ( (x min, x max), (y min, y max) )
 type Extent = ((Int,Int),(Int,Int))
 
-extent :: [(Int,Int)] -> Extent
+extent :: [Coord] -> Extent
 extent cs = ((xm,xM),(ym,yM))
   where
     (L.sort -> xs,L.sort -> ys) = unzip cs
@@ -74,25 +75,22 @@ topleft, bottomright :: Extent -> Coord
 topleft     ((x,_),(y,_)) = (x,y)
 bottomright ((_,x),(_,y)) = (x,y)
 
+rows :: Extent -> [[Coord]]
+rows ((xm,xM),(ym,yM)) = [ [ (x,y) | x <- [xm..xM] ] | y <- [ym..yM] ]
+
+coords :: Extent -> [Coord]
+coords = concat . rows
+
 
 -- Grid
 
 -- Int = coordinates' index in the input
 type Grid = (Extent, Map Coord (Maybe Int))
 
-coords :: Grid -> [Coord]
-coords (e,_) = [(x,y) | x <- xs, y <- ys]
-  where
-    (xm,ym) = topleft e
-    (xM,yM) = bottomright e
-
-    xs = [xm..xM]
-    ys = [ym..yM]
-
 draw :: Extent -> [Coord] -> Grid
 draw e cs = (e,grid)
   where
-    xys = coords (e,undefined)
+    xys = coords e
     grid = M.fromAscList [(c,closest cs c) | c <- xys]
 
 onEdge :: Coord -> Grid -> Bool
@@ -101,18 +99,16 @@ onEdge :: Coord -> Grid -> Bool
 
 
 
--- Drawing a pretty picture
+-- Drawing a pretty grid
 
 printGrid :: Grid -> IO ()
-printGrid g = do
-  for_ ys $ \y -> do
-    for_ xs $ \x -> do
+printGrid g@(e,_) = do
+  for_ xys $ \ys -> do
+    for_ ys $ \(x,y) -> do
       putChar (gridChar g (x,y))
     putChar '\n'
   where
-    xys = coords g
-    xs = L.nub $ L.sort $ map fst xys
-    ys = L.nub $ L.sort $ map snd xys
+    xys = rows e
 
 gridChar :: Grid -> Coord -> Char
 gridChar (_,m) c
@@ -129,9 +125,9 @@ gridChar (_,m) c
 type Areas = Map Int (Maybe Int)
 
 areas :: Grid -> Areas
-areas g@(_,gm) = ans
+areas g@(e,gm) = ans
   where
-    ans = L.foldl' walk M.empty (coords g)
+    ans = L.foldl' walk M.empty (coords e)
 
     walk m c | Just _ <- mi = count
              | otherwise    = m
@@ -146,7 +142,7 @@ maxArea = maximum
 
 -- Region
 
-region :: Int -> [Coord] -> Grid -> Int
-region n cs g = length . filter inside . coords $ g
+region :: Int -> [Coord] -> Grid -> [Coord]
+region n cs = filter inside . coords . fst
   where
     inside c = sum [manhattan c c' | c' <- cs] < n
