@@ -2,24 +2,26 @@
 module Main where
 
 import qualified Data.List as L
+
 import Data.Map (Map, (!))
 import qualified Data.Map as M
+
 import Data.Foldable (for_)
+
 import Control.Applicative (liftA2)
 
 main :: IO ()
 main = do
   input <- map parse . lines <$> readFile "input.txt"
   let e = extend . extent $ input
-  print e
-  print (topleft e, bottomright e)
+  --print e
+  --print (topleft e, bottomright e)
   let g = draw e input
-  -- printGrid g
+  --printGrid g
   let as' = areas g
-  M.traverseWithKey (\k v -> print (k,v)) as'
-  print . maxArea $ as'
-  return ()
-
+  --M.traverseWithKey (\k v -> print (k,v)) as'
+  --print . maxArea $ as'
+  print $ region 10000 input g
 
 -- Parsing
 
@@ -140,3 +142,11 @@ areas g@(_,gm) = ans
 
 maxArea :: Areas -> Maybe Int
 maxArea = maximum
+
+
+-- Region
+
+region :: Int -> [Coord] -> Grid -> Int
+region n cs g = length . filter inside . coords $ g
+  where
+    inside c = and [manhattan c c' < n | c' <- cs]
