@@ -23,6 +23,8 @@ main = do
   --print . maxArea $ as'
   let r = region 10000 input g
   print $ length r
+  printRegion r
+
 
 -- Parsing
 
@@ -146,3 +148,17 @@ region :: Int -> [Coord] -> Grid -> [Coord]
 region n cs = filter inside . coords . fst
   where
     inside c = sum [manhattan c c' | c' <- cs] < n
+
+
+-- Draw a pretty region
+
+printRegion :: [Coord] -> IO ()
+printRegion cs = do
+  for_ xys $ \ys -> do
+    for_ ys $ \c -> do
+      putChar (regionChar c)
+    putChar '\n'
+  where
+    xys = rows $ extent cs
+    regionChar c | c `elem` cs = 'O'
+                 | otherwise   = '.'
