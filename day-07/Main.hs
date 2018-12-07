@@ -2,6 +2,8 @@
 {-# language PatternSynonyms #-}
 module Main where
 
+import Debug.Trace
+
 import Data.Ord
 import Data.Map  ( Map )
 import Data.Char
@@ -88,6 +90,19 @@ freeNodes (Graph ns)
         where
           g' = L.foldl' (=-) (Graph ns') fs
 
+freeNodesExcept :: [Char] -> Graph -> Maybe ([Node],Graph)
+freeNodesExcept _  (Graph ns) | null ns = Nothing
+freeNodesExcept [] (Graph ns) = freeNodes (Graph ns)
+freeNodesExcept cs (Graph ns)
+  = case L.partition test ns of
+      ([],_  ) -> Nothing
+      (fs,ns') -> Just (fs, g')
+        where
+          g' = L.foldl' (=-) (Graph ns') fs
+    where
+      -- test: available (no requirements) and unassigned (not in the exception list)
+      test Node{..} = null reqs_ && name_ `notElem` cs
+
 -- Parallel workers
 
 data Worker = Worker
@@ -128,7 +143,9 @@ freeWorkers Work{..} = M.keys . M.filter (isNothing . job_) $ ws_
 
 availableSteps :: Work -> Maybe ([Char],Graph)
 availableSteps Work{..}
-  = (\(ns,g) -> (map name_ ns, g)) <$> freeNodes g_
+  = (\(ns,g) -> (map name_ ns, g)) <$> freeNodesExcept (traceShowId currentlyWorkedOn) g_
+    where
+      currentlyWorkedOn = catMaybes . M.elems . fmap ((fmap fst) . job_) $ ws_
 
 -- only called if there are both freeWorkers and availableStep
 assignWork :: Work -> [(Int,Char)] -> Graph -> Work
