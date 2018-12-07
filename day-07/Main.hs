@@ -2,22 +2,17 @@
 {-# language PatternSynonyms #-}
 {-# language OverloadedLists #-}
 {-# language ViewPatterns #-}
+
 module Main where
 
-import Debug.Trace
+import Data.Ord  ( comparing )
+import Data.Set  ( Set )
+import Data.Char ( ord, isUpper )
 
-import Data.Ord
-import Data.Set        ( Set )
-import Data.Map.Strict ( Map )
-import Data.Char
-import Data.Maybe
-import Data.Function
+import qualified Data.Set  as S
+import qualified Data.List as L
 
-import qualified Data.Set         as S
-import qualified Data.Map.Strict  as M
-import qualified Data.List        as L
-
-import Control.Arrow
+import Control.Arrow ( first, second, (***) )
 
 --
 
@@ -70,10 +65,10 @@ removeStep g s = S.map (removeReq s) . S.filter ((s /=) . step_) $ g
 --
 
 type ID = Int
-type Job = (Step, Int)
+type Job = (Step, Int) -- (step, time left to complete)
 
 data Worker = Worker
-  { id_ :: Int
+  { id_ :: ID
   , job_ :: Maybe Job
   }
 
@@ -118,14 +113,11 @@ mkWorker i j = Worker
 
 type Workers = Set Worker
 
-mkWorkers :: Int -> Workers
-mkWorkers n = S.fromList . map mkIdleWorker $ [1..n]
+mkIdleWorkers :: Int -> Workers
+mkIdleWorkers n = S.fromList . map mkIdleWorker $ [1..n]
 
 partitionWorkers :: Workers -> (Workers,Workers) -- (idle,busy)
 partitionWorkers = S.partition isIdle
-
--- partitionWorkers :: Workers -> ([ID],[ID]) -- (idle,busy)
--- partitionWorkers = (map id_ *** map id_) . L.partition isIdle . S.elems
 
 idle :: Workers -> [ID]
 idle = map id_ . S.elems . fst . partitionWorkers
@@ -145,6 +137,9 @@ advance = S.map decrease
 done :: Workers -> [Step]
 done ws = [ s | Done s <- S.elems ws ]
 
+areRunning :: Workers -> Step -> Bool
+ws `areRunning` s = s `elem` activeSteps ws
+
 --
 
 data Work = Work
@@ -152,46 +147,6 @@ data Work = Work
   , ws_ :: Workers
   , g_  :: Graph
   }
-
-begin :: Int -> Graph -> Work
-begin n g = Work
-  { t_  = -1
-  , ws_ = mkWorkers n
-  , g_  = g
-  }
-
-dispatch :: Work -> Work
-dispatch w@Work{..} = w'
-  where
-    associations = zip (idle ws_) (freeUnhandledSteps w)
-    w' = w =++ associations
-
-tick :: Work -> Maybe Work
-tick w@Work{..} | isEmpty g_ && null (busy ws_) = Nothing
-tick w@Work{..} = Just $ dispatch $ w
-  { t_  = t'
-  , ws_ = ws''
-  , g_  = g'
-  }
-  where
-    t' = succ t_
-
-    ws' = advance ws_
-    (finished,running) = S.partition isDone ws'
-    ws'' = (S.map setIdle finished) `S.union` ws' -- free finished workers
-
-    -- clear the graph of every reference to the finished steps
-    g' = g_ `removeSteps` (S.elems $ S.map jobStep finished)
-
---
-
-isUnhandled :: Work -> Step -> Bool
-isUnhandled w i = i `notElem` activeSteps (ws_ w)
-
-freeUnhandledSteps :: Work -> [Step]
-freeUnhandledSteps work@Work{..} = [ s | Free s <- S.elems g_, isUnhandled work s ]
-
---
 
 (=++) :: Work -> [(ID,Step)] -> Work
 w =++ assocs = L.foldl' (=+) w assocs
@@ -201,8 +156,38 @@ work =+ (i,s) = work { ws_ = S.insert w (ws_ work) }
   where
     w = mkWorker i (s,duration s)
 
-assemble :: Int -> Graph -> [Work]
-assemble n = L.unfoldr (fmap (\w -> (w,w)) . tick) . begin n
+begin :: Int -> Graph -> Work
+begin n g = Work
+  { t_  = -1
+  , ws_ = mkIdleWorkers n
+  , g_  = g
+  }
+
+stepsToDo :: Work -> [Step]
+stepsToDo Work{..} = [ s | Free s <- S.elems g_, not (ws_ `areRunning` s) ]
+
+dispatch :: Work -> Work
+dispatch w@Work{..} = w'
+  where
+    associations = zip (idle ws_) (stepsToDo w)
+    w' = w =++ associations
+
+tick :: Work -> Maybe Work
+tick   Work{..} | isEmpty g_ && null (busy ws_) = Nothing
+tick w@Work{..} = Just $ dispatch $ w
+  { t_  = succ t_
+  , ws_ = ws''
+  , g_  = g'
+  }
+  where
+    ws'      = advance ws_
+
+    -- collect finished workers and set them Idle again
+    finished = S.filter isDone ws'
+    ws''     = (S.map setIdle finished) `S.union` ws'
+
+    -- clear the graph of every reference to the finished steps
+    g' = g_ `removeSteps` (S.elems $ S.map jobStep finished)
 
 --
 
@@ -215,15 +200,13 @@ parse = pairs . pluck . concatMap tail . lines -- skip the first letter of each 
     pairs [] = []
     pairs (a:b:xs) = (a,b) : pairs xs
 
---
-
 --- Pretty-printing
 
 instance Show Worker where
-  showsPrec _ Worker{..} = showJob job_
+  showsPrec _ Worker{..} = showsJob job_
     where
-      showJob Nothing = showString "."
-      showJob (Just (c,t)) = showChar c . showChar ' ' . shows t
+      showsJob Nothing      = showString "."
+      showsJob (Just (c,t)) = showChar c . showChar ' ' . shows t
 
 instance Show Work where
   showsPrec _ Work{..}
@@ -235,12 +218,15 @@ instance Show Work where
       showNode (c,[]) = showChar '[' . showChar c . showChar ']'
       showNode (c,rs) = showChar c . showString "->" . showString rs
 
---
+-- Part 1
 
 part1 :: Graph -> [Step]
 part1 = L.unfoldr (fmap (first step_) . minView)
 
---
+-- Part 2
+
+assemble :: Int -> Graph -> [Work]
+assemble n = L.unfoldr (fmap (\w -> (w,w)) . tick) . begin n
 
 part2 :: Graph -> IO ()
 part2 g = do
@@ -249,7 +235,7 @@ part2 g = do
   putStr "seconds to complete the assembly: "
   print . t_ . last $ assembly
 
---
+-- Main
 
 main :: IO ()
 main = do
