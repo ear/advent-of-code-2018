@@ -14,7 +14,7 @@ import qualified Data.List as L
 
 main :: IO ()
 main = do
-  input <- map parse . lines <$> readFile "test.txt"
+  input <- map parse . lines <$> readFile "input.txt"
   -- all the letters
   let cs = L.nub . L.sort . concatMap (\(a,b) -> [a,b]) $ input
   -- nodes
@@ -22,8 +22,9 @@ main = do
   -- solution
   putStrLn $ crawl g
   -- part 2
-  print $ start g
-  print . tick $ start g
+  let steps = construct 6 g
+  --mapM_ print steps
+  print $ length steps
 
 -- Parsing
 
@@ -81,27 +82,12 @@ empty :: Graph -> Bool
 empty (Graph []) = True
 empty _ = False
 
-freeNodes :: Graph -> Maybe ([Node],Graph)
+freeNodes :: Graph -> Maybe [Node]
 freeNodes (Graph ns) | null ns = Nothing
 freeNodes (Graph ns)
-  = case L.partition (null . reqs_) ns of
-      ([],_  ) -> Nothing
-      (fs,ns') -> Just (fs, g')
-        where
-          g' = L.foldl' (=-) (Graph ns') fs
-
-freeNodesExcept :: [Char] -> Graph -> Maybe ([Node],Graph)
-freeNodesExcept _  (Graph ns) | null ns = Nothing
-freeNodesExcept [] (Graph ns) = freeNodes (Graph ns)
-freeNodesExcept cs (Graph ns)
-  = case L.partition test ns of
-      ([],_  ) -> Nothing
-      (fs,ns') -> Just (fs, g')
-        where
-          g' = L.foldl' (=-) (Graph ns') fs
-    where
-      -- test: available (no requirements) and unassigned (not in the exception list)
-      test Node{..} = null reqs_ && name_ `notElem` cs
+  = case L.filter (null . reqs_) ns of
+      [] -> Nothing
+      fs -> Just fs
 
 -- Parallel workers
 
@@ -119,8 +105,8 @@ data Work = Work
   , g_  :: Graph
   }
 
-start :: Graph -> Work
-start = Work (-1) (M.fromList $ zip [1..] $ map (\i -> Worker i Nothing) [1..6])
+start :: Int -> Graph -> Work
+start n = Work (0) (M.fromList $ zip [1..] $ map (\i -> Worker i Nothing) [1..n])
 
 workerDone = isNothing . job_
 
@@ -134,18 +120,25 @@ tick w@Work{..}
       [] -> Just w'
       ws -> case availableSteps w of
               Nothing -> Just w'
-              Just (cs,g') -> Just $ stepWorkers (assignWork w (zip ws cs) g')
+              Just cs -> Just w''
+                where
+                  --assignments = traceShow ("assignments:", zip ws cs) $ zip ws cs
+                  assignments = zip ws cs
+                  w'' = stepWorkers $ assignWork w assignments g_
   where
     w' = stepWorkers w
 
 freeWorkers :: Work -> [Int]
 freeWorkers Work{..} = M.keys . M.filter (isNothing . job_) $ ws_
 
-availableSteps :: Work -> Maybe ([Char],Graph)
-availableSteps Work{..}
-  = (\(ns,g) -> (map name_ ns, g)) <$> freeNodesExcept (traceShowId currentlyWorkedOn) g_
+currentJobs :: Work -> [Char]
+currentJobs Work{..} = catMaybes . map (fmap fst . job_) . M.elems $ ws_
+
+availableSteps :: Work -> Maybe [Char]
+availableSteps w@Work{..}
+  = (filter (`notElem` jobs) . map name_) <$> freeNodes g_
     where
-      currentlyWorkedOn = catMaybes . M.elems . fmap ((fmap fst) . job_) $ ws_
+      jobs = currentJobs w
 
 -- only called if there are both freeWorkers and availableStep
 assignWork :: Work -> [(Int,Char)] -> Graph -> Work
@@ -153,23 +146,25 @@ assignWork Work{..} pairs g' = Work t_ ws' g'
   where
     ws' = L.foldl' assign ws_ pairs
     -- m = workers map; i = worker id; c = job char
-    assign m (i,c) = M.insert i (Worker i (Just (c,ord c - ord 'A' + 2))) m
+    assign m (i,c) = M.insert i (Worker i (Just (c,ord c - ord 'A' + 2 + 60))) m
 
 stepWorkers :: Work -> Work
 stepWorkers Work{..} = w'
   where
-    w' = Work t' ws' g_
+    w' = Work t' ws' g'
     t' = succ t_
-    ws' = fmap advance ws_
+    (freed,ws') = M.mapAccum advance [] ws_
 
-    advance w@Idle = w
-    advance w@(Working c t)
+    advance freed w@Idle = (freed,w)
+    advance freed w@(Working c t)
       = case pred t of
-          0 -> w { job_ = Nothing }
-          n -> w { job_ = Just (c,n) }
+          1 -> (c : freed, w { job_ = Nothing    })
+          n -> (    freed, w { job_ = Just (c,n) })
 
-construct :: Graph -> [Work]
-construct = L.unfoldr (fmap (\x->(x,x)) . tick) . start
+    g' = L.foldl' (=-) g_ $ map (\c -> Node c []) freed
+
+construct :: Int -> Graph -> [Work]
+construct n = L.unfoldr (fmap (\x->(x,x)) . tick) . start n
 
 -- Pretty-printing
 
