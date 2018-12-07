@@ -24,7 +24,7 @@ import Control.Arrow
 type Step = Char
 
 duration :: Step -> Int
-duration x = ord x - ord 'A' + 1
+duration x = ord x - ord 'A' + 1 + 60
 
 --
 
@@ -223,15 +223,17 @@ instance Show Worker where
   showsPrec _ Worker{..} = showJob job_
     where
       showJob Nothing = showString "."
-      showJob (Just (c,t)) = shows c . showChar ' ' . shows t
+      showJob (Just (c,t)) = showChar c . showChar ' ' . shows t
 
 instance Show Work where
   showsPrec _ Work{..}
     = shows t_ . showChar '\t'
-    . showString (L.intercalate "\t" (map show $ S.elems ws_)) . showChar '\t'
+    . (foldr (.) id $ map (\c -> showChar '\t' . shows c) (S.elems ws_)) . showChar '\t'
     . showGraph g_
     where
-      showGraph = shows . map (\(Node c rs) -> (c,S.toList rs)) . S.toList
+      showGraph = foldr (.) id . map (\n -> showNode n . showChar ' ') . map (\(Node c rs) -> (c,S.toList rs)) . S.toList
+      showNode (c,[]) = showChar '[' . showChar c . showChar ']'
+      showNode (c,rs) = showChar c . showString "->" . showString rs
 
 --
 
@@ -242,7 +244,7 @@ part1 = L.unfoldr (fmap (first step_) . minView)
 
 part2 :: Graph -> IO ()
 part2 g = do
-  let assembly = assemble 2 g
+  let assembly = assemble 6 g
   mapM_ print assembly
   putStr "seconds to complete the assembly: "
   print . t_ . last $ assembly
@@ -253,5 +255,5 @@ main :: IO ()
 main = do
   g <- fromList . parse <$> readFile "input.txt"
   putStrLn . part1 $ g
-  g' <- fromList . parse <$> readFile "test.txt"
-  part2 g'
+  -- g' <- fromList . parse <$> readFile "test.txt"
+  part2 g
