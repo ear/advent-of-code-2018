@@ -38,23 +38,22 @@ t2 = parse [2,3,0,1,4,0,1,5,8,7,6]
 parse :: [Int] -> Tree Int
 parse xs =
   case parse' xs of
-    (t,[]) -> t
-    (_,rest) -> error $ show rest -- unhandled rest of the input
+    (t,[]       ) -> t
+    (_,unmatched) -> error $ "unhandled tail of the input: " ++ show unmatched
 
 parse' :: [Int] -> (Tree Int, [Int]) -- (tree, rest)
-parse' (0 : m : xs) = (Node (take m xs) [], drop m xs)
-parse' (c : m : xs) = (Node (take m ys) cs, drop m ys)
+parse' (c:m:xs) = (Node (take m ys) cs, drop m ys)
   where
     (cs,ys) = parseC c xs
 
 -- 0 1 x 0 1 x y
 -- ( [Node [] [],Node [] []] , [y] )
 parseC :: Int -> [Int] -> ([Tree Int],[Int]) -- (n children, rest)
-parseC n xs = go n [] xs
+parseC n xs = collect n [] xs
   where
-    go 0 ts xs = (ts,xs)
-    go n ts xs = let (t,ys) = parse' xs
-                 in go (pred n) (ts ++ [t]) ys
+    collect 0 ts xs = (ts,xs)
+    collect n ts xs = let (t,ys) = parse' xs
+                      in collect (pred n) (ts ++ [t]) ys
 
 part1 :: Tree Int -> IO ()
 part1 = print . sum
