@@ -6,6 +6,10 @@ module Main where
 data Tree a = Node { m_ :: [a], c_ :: [Tree a] }
   deriving (Show, Eq, Foldable)
 
+--------------------------------------------------------------------------------
+-- Part 1
+--------------------------------------------------------------------------------
+
 -- 2 0 0 1 x 0 1 x
 -- +--
 --     +---- +----
@@ -18,7 +22,6 @@ t0 = parse [2,0,0,0,0,0] == Node [] [Node [] [], Node [] []]
 t1 = parse [2,0,0,1,4,0,1,5] == Node [] [Node [4] [], Node [5] []]
 t2 = parse [2,3,0,1,4,0,1,5,8,7,6]
   == Node [8,7,6] [ Node [4] [], Node [5] [] ]
-
 
 parse :: [Int] -> Tree Int
 parse xs =
@@ -44,10 +47,23 @@ parseC n xs = go n [] xs
     go n ts xs = let (t,ys) = parse' xs
                  in go (pred n) (ts ++ [t]) ys
 
-part1 xs = do
-  print . sum . parse $ xs
+part1 = print . sum
+
+--------------------------------------------------------------------------------
+-- Part 2
+--------------------------------------------------------------------------------
+
+value :: Tree Int -> Int
+value = undefined
+
+part2 = print . value
+
+--------------------------------------------------------------------------------
+-- Main
+--------------------------------------------------------------------------------
 
 main = do
-  input <- map (read @Int) . words <$> readFile "input.txt"
-  part1 input
+  tree <- parse . map (read @Int) . words <$> readFile "input.txt"
+  part1 tree
+  part2 tree
 
