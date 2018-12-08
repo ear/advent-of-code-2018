@@ -1,7 +1,14 @@
 {-# language DeriveFoldable #-}
 {-# language TypeApplications #-}
+{-# language ViewPatterns #-}
 
 module Main where
+
+import Data.Map.Strict ( Map, (!?) )
+
+import qualified Data.Map.Strict as M
+
+--------------------------------------------------------------------------------
 
 data Tree a = Node { m_ :: [a], c_ :: [Tree a] }
   deriving (Show, Eq, Foldable)
@@ -53,8 +60,23 @@ part1 = print . sum
 -- Part 2
 --------------------------------------------------------------------------------
 
+-- 2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2
+-- A----------------------------------
+--     B----------- C-----------
+--                      D-----
 value :: Tree Int -> Int
-value = undefined
+value = sum' . toI
+
+data ITree a = INode [Int] (Map Int (ITree a))
+  deriving (Show)
+
+sum' :: ITree Int -> Int
+sum' (INode idxs c)
+  | M.null c  = sum idxs
+  | otherwise = sum [ sum' t | Just t <- map (c !?) idxs ]
+
+toI :: Tree Int -> ITree Int
+toI (Node m (M.fromAscList . zip [1..] . map toI -> c)) = INode m c
 
 part2 = print . value
 
