@@ -72,11 +72,15 @@ primitives to move focus
 > right = undefined
 
 place is the non-scoring insertion algorithm
+  - inserts to the right of the right of the focus
+  - focuses to it
 
 > place :: Marble -> Ring -> Ring
 > place = undefined
 
-pop removes currently focused, and focuses the right one
+pop is the scoring algorithm
+  - removes the seventh to the left of the focus
+  - focuses to the right of it
 
 > pop :: Ring -> (Marble,Ring)
 > pop = undefined
