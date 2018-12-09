@@ -55,7 +55,7 @@ part 1 question
 >   , focus_   :: Int
 >   , seventh_ :: Int
 >   , map_     :: Map Int Int
->   }
+>   } deriving (Show)
 
 > emptyRing :: Ring
 > emptyRing = Ring
@@ -69,14 +69,24 @@ primitives to move focus
 
 > left, right :: Ring -> Ring
 > left  = undefined
-> right = undefined
+> right r@Ring{..}
+>   = r { focus_ = (succ focus_ `mod` size_)
+>       } -- TODO: seventh
 
 place is the non-scoring insertion algorithm
   - inserts to the right of the right of the focus
   - focuses to it
 
 > place :: Marble -> Ring -> Ring
-> place = undefined
+> place m (right -> ring@Ring{..})
+>   = right $ ring { size_ = size'
+>                  , map_  = map'
+>                  }
+>   where
+>     size' = succ size_
+>     (l,r) = M.partitionWithKey (at focus_) map_
+>     at n k _ = k <= n
+>     map' = M.unions [l, M.singleton (succ focus_) m, M.mapKeys succ r]
 
 pop is the scoring algorithm
   - removes the seventh to the left of the focus
