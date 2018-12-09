@@ -77,6 +77,7 @@ pop removes currently focused, and focuses the right one
 >   , marble_ :: Int
 >   , ring_   :: Ring
 >   , scores_ :: Map Int Int
+>   , points_ :: Int
 >   }
 
 > mkGame :: Int -> Game
@@ -86,6 +87,7 @@ pop removes currently focused, and focuses the right one
 >   , marble_ = 1 -- or 0 ?
 >   , ring_   = emptyRing
 >   , scores_ = M.fromList $ zip [0..players-1] (repeat 0)
+>   , points_ = 0
 >   }
 
 > nextElf :: Game -> Game
@@ -96,12 +98,9 @@ pop removes currently focused, and focuses the right one
 
 points obtained by the last scoring marble
 
-> points :: Game -> Int
-> points = undefined
-
 > part1 players lastMarble
 >   = maximum . scores_
->   . head . dropWhile ((lastMarble /=) . points)
+>   . head . dropWhile ((lastMarble /=) . points_)
 >   . iterate tick
 >   . mkGame $ players
 
