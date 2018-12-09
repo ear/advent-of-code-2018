@@ -72,26 +72,26 @@ pop removes currently focused, and focuses the right one
 > pop = undefined
 
 > data Game = Game
->   { curElf_ :: Int
->   , maxElf_ :: Int
->   , marble_ :: Int
->   , ring_   :: Ring
->   , scores_ :: Map Int Int
->   , points_ :: Int
+>   { elf_     :: Int
+>   , players_ :: Int
+>   , marble_  :: Int
+>   , ring_    :: Ring
+>   , scores_  :: Map Int Int -- Map Elf Points
+>   , points_  :: Int         -- last points scored
 >   }
 
 > mkGame :: Int -> Game
 > mkGame players = Game
->   { curElf_ = 0
->   , maxElf_ = players
->   , marble_ = 1 -- or 0 ?
->   , ring_   = emptyRing
->   , scores_ = M.fromList $ zip [0..players-1] (repeat 0)
->   , points_ = 0
+>   { elf_     = 0
+>   , players_ = players
+>   , marble_  = 1 -- or 0 ?
+>   , ring_    = emptyRing
+>   , scores_  = M.fromList $ zip [0..players-1] (repeat 0)
+>   , points_  = 0
 >   }
 
 > nextElf :: Game -> Game
-> nextElf g@Game{..} = g { curElf_ = (succ curElf_ `mod` maxElf_) }
+> nextElf g@Game{..} = g { elf_ = (succ elf_ `mod` players_) }
 
 > tick :: Game -> Game
 > tick = undefined
