@@ -143,5 +143,10 @@ Part 1:
 > test :: IO ()
 > test = mapM_ print [ part1 ps lm == hs | ((ps,lm),hs) <- tests ]
 
+Part 2:
+
+> part2 :: Int -> Int -> Int
+> part2 players lastMarble = part1 players (lastMarble * 100)
+
 > main :: IO ()
-> main = print $ part1 425 70848
+> main = print $ part2 425 70848
