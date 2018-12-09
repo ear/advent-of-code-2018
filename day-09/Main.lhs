@@ -1,3 +1,4 @@
+> {-# language OverloadedLists #-}
 > {-# language RecordWildCards #-}
 > {-# language ViewPatterns #-}
 > {-# language LambdaCase #-}
@@ -46,55 +47,43 @@ part 1 question
 
 
 > import Debug.Trace
-> import Data.Map.Strict ( Map, (!) )
+> import Data.Sequence ( Seq( .. ), (<|), (|>) )
+> import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict as M
 
 > type Marble = Int
+> type Marbles = Seq Marble
 
-> data Ring = Ring
->   { size_    :: Int
->   , focus_   :: Int
->   , map_     :: Map Int Int
->   } deriving (Show)
+> data Ring = Ring { m_  :: !Marble, ms_ :: !Marbles }
+>   deriving Show
 
 > emptyRing :: Ring
-> emptyRing = Ring
->   { size_    = 1
->   , focus_   = 0
->   , map_     = M.singleton 0 0
->   }
+> emptyRing = Ring 0 []
 
 primitives to move focus
 
 > left, right :: Ring -> Ring
-> left  r@Ring{..} = r { focus_ = ((pred focus_) `mod` size_) }
-> right r@Ring{..} = r { focus_ = ((succ focus_) `mod` size_) }
+
+> left  r@(Ring _ Empty       ) = r
+> left    (Ring x (ys :|> y)) = Ring y (x <| ys)
+
+> right r@(Ring _ Empty       ) = r
+> right   (Ring x (y :<| ys)) = Ring y (ys |> x)
 
 place is the non-scoring insertion algorithm
   - inserts to the right of the right of the focus
   - focuses to it
 
 > place :: Marble -> Ring -> Ring
-> place m ring@Ring{..} = ring'
->   where
->     size' = succ size_
->     (l,r) = M.partitionWithKey (\k _ -> k < focus_) map_
->     ring' = ring { size_ = size'
->                  , map_ = M.union (M.insert focus_ m l) $! (M.mapKeys succ r)
->                  }
+> place m (Ring x xs) = Ring m (x <| xs)
 
 pop is the scoring algorithm
   - removes the focused marble
   - focuses to the right of it
 
 > pop :: Ring -> (Marble,Ring)
-> pop ring@Ring{..} = ( m , ring' )
->   where
->     size' = pred size_
->     (l,Just m,r) = M.splitLookup focus_ map_
->     ring' = ring { size_ = size'
->                  , map_ = (l `M.union` (M.mapKeys pred r))
->                  }
+> pop (Ring _ Empty     ) = error "cannot pop from singleton Ring"
+> pop (Ring x (r :<| rs)) = ( x , Ring r rs )
 
 > data Game = Game
 >   { elf_     :: !Int
