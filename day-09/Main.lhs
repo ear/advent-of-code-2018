@@ -51,9 +51,19 @@ part 1 question
 > type Marble = Int
 
 > data Ring = Ring
+>   { size_    :: Int
+>   , focus_   :: Int
+>   , seventh_ :: Int
+>   , map_     :: Map Int Int
+>   }
 
 > emptyRing :: Ring
 > emptyRing = Ring
+>   { size_    = 1
+>   , focus_   = 0
+>   , seventh_ = 0
+>   , map_     = M.singleton 0 0
+>   }
 
 primitives to move focus
 
