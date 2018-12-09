@@ -38,8 +38,7 @@ placing a marble (square brackets represent the focus on the current marble)
       to:   ... - 8th - [6th] - ... - left - oldfocus - ...
 
 victory condition
-  - the points obtained when placing a mod 23 marble
-    N.B. those points are (marble value) + (7th marble to the left)
+  - having the most points when the last marble is played
 
 part 1 question
   - when the game ends what is the elfs' highest score?
@@ -103,7 +102,6 @@ pop is the scoring algorithm
 >   , marble_  :: Int
 >   , ring_    :: Ring
 >   , scores_  :: Map Int Int -- Map Elf Points
->   , points_  :: Int         -- last points scored
 >   } deriving (Show)
 
 > mkGame :: Int -> Game
@@ -113,7 +111,6 @@ pop is the scoring algorithm
 >   , marble_  = 0
 >   , ring_    = emptyRing
 >   , scores_  = M.fromList $ zip [0..players-1] (repeat 0)
->   , points_  = 0
 >   }
 
 > nextElf :: Game -> Game
@@ -130,21 +127,19 @@ Scoring
 >   | m `mod` 23 == 0 =
 >     let (m',ring') = pop . head . drop 7 . iterate left $ ring_
 >     in g { ring_   = ring'
->          , points_ = m + m'
 >          , scores_ = M.insertWith (+) elf_ (m + m') scores_
 >          }
 
 Non-scoring
 
 >   | otherwise = g { ring_   = place m ring_
->                   , points_ = 0
 >                   }
 
-points obtained by the last scoring marble
+Part 1:
 
 > part1 players lastMarble
 >   = maximum . scores_
->   . head . dropWhile ((lastMarble /=) . points_)
+>   . head . dropWhile ((lastMarble /=) . marble_)
 >   . iterate tick
 >   . mkGame $ players
 
