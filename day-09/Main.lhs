@@ -45,7 +45,7 @@ part 1 question
   - when the game ends what is the elfs' highest score?
 
 
-> import Data.Map.Strict ( Map )
+> import Data.Map.Strict ( Map, (!) )
 > import qualified Data.Map.Strict as M
 
 > type Marble = Int
@@ -96,7 +96,15 @@ pop is the scoring algorithm
   - focuses to the right of it
 
 > pop :: Ring -> (Marble,Ring)
-> pop = undefined
+> pop ring = ( m , ring' )
+>   where
+>     size'        = pred (size_ ring)
+>     ring'        = head . drop 6 . iterate left $ ring
+>     (l,Just m,r) = M.splitLookup (focus_ ring') (map_ ring')
+>     ring''       = ring' { size_    = size'
+>                          , map_     = l `M.union` (M.mapKeys pred r)
+>                          , seventh_ = (focus_ ring' - 7) `mod` size'
+>                          }
 
 > data Game = Game
 >   { elf_     :: Int
