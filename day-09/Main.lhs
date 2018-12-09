@@ -42,5 +42,46 @@ victory condition
 part 1 question
   - when the game ends what is the elfs' highest score?
 
+data Ring = Ring
+
+primitives to move focus
+left, right :: Ring -> Ring
+left  = undefined
+right = undefined
+
+place is the non-scoring insertion algorithm
+place :: Marble -> (Marble,Ring)
+place = undefined
+
+pop removes currently focused, and focuses the right one
+pop :: Ring -> (Marble,Ring)
+pop = undefined
+
+data Game = Game
+
+mkGame :: Int -> Game
+mkGame players = undefined
+
+tick :: Game -> Game
+
+points obtained by the last scoring marble
+points :: Game -> Int
+
+part1 players lastMarble
+  = maximum . scores_
+  . head . dropWhile ((lastMarble /=) . points)
+  . iterate tick
+  . mkGame $ players
+
+tests =
+  [ ( (10,1618),   8317 )
+  , ( (13,7999), 146373 )
+  , ( (17,1104),   2764 )
+  , ( (21,6111),  54718 )
+  , ( (30,5807),  37305 )
+  ]
+
+main = mapM_ print [ part1 ps lm == hs | ((ps,lm),hs) <- tests ]
+
 > main :: IO ()
 > main = print ()
