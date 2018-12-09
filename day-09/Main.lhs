@@ -1,3 +1,5 @@
+> {-# language RecordWildCards #-}
+> {-# language ViewPatterns #-}
 > module Main where
 
 marbles = [0..]
@@ -42,9 +44,16 @@ victory condition
 part 1 question
   - when the game ends what is the elfs' highest score?
 
+
+> import Data.Map.Strict ( Map )
+> import qualified Data.Map.Strict as M
+
 > type Marble = Int
 
 > data Ring = Ring
+
+> emptyRing :: Ring
+> emptyRing = Ring
 
 primitives to move focus
 
@@ -63,9 +72,24 @@ pop removes currently focused, and focuses the right one
 > pop = undefined
 
 > data Game = Game
+>   { curElf_ :: Int
+>   , maxElf_ :: Int
+>   , marble_ :: Int
+>   , ring_   :: Ring
+>   , scores_ :: Map Int Int
+>   }
 
 > mkGame :: Int -> Game
-> mkGame players = undefined
+> mkGame players = Game
+>   { curElf_ = 0
+>   , maxElf_ = players
+>   , marble_ = 1 -- or 0 ?
+>   , ring_   = emptyRing
+>   , scores_ = M.fromList $ zip [0..players-1] (repeat 0)
+>   }
+
+> nextElf :: Game -> Game
+> nextElf g@Game{..} = g { curElf_ = (succ curElf_ `mod` maxElf_) }
 
 > tick :: Game -> Game
 > tick = undefined
