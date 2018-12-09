@@ -70,8 +70,11 @@ primitives to move focus
 > left, right :: Ring -> Ring
 > left  = undefined
 > right r@Ring{..}
->   = r { focus_ = (succ focus_ `mod` size_)
->       } -- TODO: seventh
+>   = r { focus_   = (focus'   `mod` size_)
+>       , seventh_ = (seventh' `mod` size_)
+>       }
+>   where focus'   = succ focus_
+>         seventh' = focus' - 7
 
 place is the non-scoring insertion algorithm
   - inserts to the right of the right of the focus
