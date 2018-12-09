@@ -63,7 +63,7 @@ primitives to move focus
 
 place is the non-scoring insertion algorithm
 
-> place :: Marble -> (Marble,Ring)
+> place :: Marble -> Ring -> Ring
 > place = undefined
 
 pop removes currently focused, and focuses the right one
@@ -93,8 +93,21 @@ pop removes currently focused, and focuses the right one
 > nextElf :: Game -> Game
 > nextElf g@Game{..} = g { elf_ = (succ elf_ `mod` players_) }
 
+> nextMarble :: Game -> (Marble,Game)
+> nextMarble g@Game{..} = ( marble_, g { marble_ = (succ marble_) } )
+
 > tick :: Game -> Game
-> tick = undefined
+> tick (nextMarble . nextElf -> ( m , g@Game{..} ))
+
+Scoring
+
+>   | m `mod` 23 == 0 = undefined
+
+Non-scoring
+
+>   | otherwise = g { ring_   = (place m ring_)
+>                   , points_ = 0
+>                   }
 
 points obtained by the last scoring marble
 
