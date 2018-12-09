@@ -46,7 +46,6 @@ part 1 question
   - when the game ends what is the elfs' highest score?
 
 
-> import Debug.Trace
 > import Data.Sequence ( Seq( .. ), (<|), (|>) )
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict as M
@@ -125,13 +124,14 @@ Non-scoring
 
 Part 1:
 
+> part1 :: Int -> Int -> Int
 > part1 players lastMarble
 >   = maximum . scores_
 >   . head . dropWhile ((lastMarble /=) . marble_)
->   . map (\case g@Game{..} | marble_ `mod` 1000 == 0 -> traceShow marble_ g | otherwise -> g)
 >   . iterate tick
 >   . mkGame $ players
 
+> tests :: [( (Int,Int), Int )]
 > tests =
 >   [ ( (10,1618),   8317 )
 >   , ( (13,7999), 146373 )
@@ -140,6 +140,8 @@ Part 1:
 >   , ( (30,5807),  37305 )
 >   ]
 
+> test :: IO ()
 > test = mapM_ print [ part1 ps lm == hs | ((ps,lm),hs) <- tests ]
 
+> main :: IO ()
 > main = print $ part1 425 70848
