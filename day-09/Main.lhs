@@ -73,15 +73,13 @@ place is the non-scoring insertion algorithm
   - focuses to it
 
 > place :: Marble -> Ring -> Ring
-> place m (right -> ring@Ring{..})
->   = right $ ring { size_ = size'
->                  , map_  = map'
->                  }
+> place m ring@Ring{..} = ring'
 >   where
 >     size' = succ size_
->     (l,r) = M.partitionWithKey (at focus_) map_
->     at n k _ = k <= n
->     map' = M.unions [l, M.singleton (succ focus_) m, M.mapKeys succ r]
+>     (l,r) = M.partitionWithKey (\k _ -> k < focus_) map_
+>     ring' = ring { size_ = size'
+>                  , map_ = M.union (M.insert focus_ m l) $! (M.mapKeys succ r)
+>                  }
 
 pop is the scoring algorithm
   - removes the focused marble
@@ -97,11 +95,11 @@ pop is the scoring algorithm
 >                  }
 
 > data Game = Game
->   { elf_     :: Int
->   , players_ :: Int
->   , marble_  :: Int
->   , ring_    :: Ring
->   , scores_  :: Map Int Int -- Map Elf Points
+>   { elf_     :: !Int
+>   , players_ :: !Int
+>   , marble_  :: !Int
+>   , ring_    :: !Ring
+>   , scores_  :: !(Map Int Int) -- Map Elf Points
 >   } deriving (Show)
 
 > mkGame :: Int -> Game
@@ -132,8 +130,7 @@ Scoring
 
 Non-scoring
 
->   | otherwise = g { ring_   = place m ring_
->                   }
+>   | otherwise = g { ring_ = place m . right . right $ ring_ }
 
 Part 1:
 
@@ -151,4 +148,6 @@ Part 1:
 >   , ( (30,5807),  37305 )
 >   ]
 
-> main = mapM_ print [ part1 ps lm == hs | ((ps,lm),hs) <- tests ]
+> test = mapM_ print [ part1 ps lm == hs | ((ps,lm),hs) <- tests ]
+
+> main = print $ part1 425 70848
