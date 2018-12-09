@@ -3,26 +3,37 @@
 marbles = [0..]
   queue for the elves, to take the min out to place in the ring
 
+elves = [1..n]
+  they cycle in taking turns: 1, 2, …, n, 1, 2, …
+
 ring
   counter-clockwise (left) -- current marble (focus) -- clockwise (right)
   grows and shrinks by exactly 1 each game step
   starts as [0]
 
-elves = [1..n]
-
 game
-  elf (goes in a circle: 1..n,1..n,1..n,...)
-  marble (consumed from [0..])
-  ring
+  * elf
+  * marble
+  * ring
+  * scores
 
-placing a marble
-  simple case:
-    * marble is inserted 2nd to the right
-        focus - right - [new marble]
-  mod 23 case:
-    * the marble goes to the elf score (not to the ring)
-    * deletion of the 7th to the left (also goes to the elf score)
-        [7th] - (6 .. left) - focus
+placing a marble (square brackets represent the focus on the current marble)
+
+  - non-scoring: marble /= 0 (mod 23)
+
+    insert between 1st and 2nd to the right
+    focus the newly inserted marble
+
+    from: ... - [focus] - 1st -  2nd  - ...
+      to: ... -  focus  - 1st - [new] - 2nd - ...
+
+  - scoring: marble == 0 (mod 23)
+
+      remove 7th to the left
+      focus on first to the right of the removed one
+
+      from: ... - 7th -  6th  - ... - left - [focus]  - ...
+      to:   ... - 8th - [6th] - ... - left - oldfocus - ...
 
 victory condition
   - the points obtained when placing a mod 23 marble
