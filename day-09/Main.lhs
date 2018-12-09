@@ -53,7 +53,6 @@ part 1 question
 > data Ring = Ring
 >   { size_    :: Int
 >   , focus_   :: Int
->   , seventh_ :: Int
 >   , map_     :: Map Int Int
 >   } deriving (Show)
 
@@ -61,20 +60,14 @@ part 1 question
 > emptyRing = Ring
 >   { size_    = 1
 >   , focus_   = 0
->   , seventh_ = 0
 >   , map_     = M.singleton 0 0
 >   }
 
 primitives to move focus
 
 > left, right :: Ring -> Ring
-> left  = undefined
-> right r@Ring{..}
->   = r { focus_   = (focus'   `mod` size_)
->       , seventh_ = (seventh' `mod` size_)
->       }
->   where focus'   = succ focus_
->         seventh' = focus' - 7
+> left  r@Ring{..} = r { focus_ = ((pred focus_) `mod` size_) }
+> right r@Ring{..} = r { focus_ = ((succ focus_) `mod` size_) }
 
 place is the non-scoring insertion algorithm
   - inserts to the right of the right of the focus
@@ -92,19 +85,17 @@ place is the non-scoring insertion algorithm
 >     map' = M.unions [l, M.singleton (succ focus_) m, M.mapKeys succ r]
 
 pop is the scoring algorithm
-  - removes the seventh to the left of the focus
+  - removes the focused marble
   - focuses to the right of it
 
 > pop :: Ring -> (Marble,Ring)
-> pop ring = ( m , ring' )
+> pop ring@Ring{..} = ( m , ring' )
 >   where
->     size'        = pred (size_ ring)
->     ring'        = head . drop 6 . iterate left $ ring
->     (l,Just m,r) = M.splitLookup (focus_ ring') (map_ ring')
->     ring''       = ring' { size_    = size'
->                          , map_     = l `M.union` (M.mapKeys pred r)
->                          , seventh_ = (focus_ ring' - 7) `mod` size'
->                          }
+>     size' = pred size_
+>     (l,Just m,r) = M.splitLookup focus_ map_
+>     ring' = ring { size_ = size'
+>                  , map_ = (l `M.union` (M.mapKeys pred r))
+>                  }
 
 > data Game = Game
 >   { elf_     :: Int
@@ -113,7 +104,7 @@ pop is the scoring algorithm
 >   , ring_    :: Ring
 >   , scores_  :: Map Int Int -- Map Elf Points
 >   , points_  :: Int         -- last points scored
->   }
+>   } deriving (Show)
 
 > mkGame :: Int -> Game
 > mkGame players = Game
@@ -129,7 +120,7 @@ pop is the scoring algorithm
 > nextElf g@Game{..} = g { elf_ = (succ elf_ `mod` players_) }
 
 > nextMarble :: Game -> (Marble,Game)
-> nextMarble g@Game{..} = ( marble_, g { marble_ = (succ marble_) } )
+> nextMarble g@Game{..} = ( succ marble_, g { marble_ = (succ marble_) } )
 
 > tick :: Game -> Game
 > tick (nextMarble . nextElf -> ( m , g@Game{..} ))
@@ -137,14 +128,15 @@ pop is the scoring algorithm
 Scoring
 
 >   | m `mod` 23 == 0 =
->     let (m',ring') = pop ring_
+>     let (m',ring') = pop . head . drop 7 . iterate left $ ring_
 >     in g { ring_   = ring'
 >          , points_ = m + m'
+>          , scores_ = M.insertWith (+) elf_ (m + m') scores_
 >          }
 
 Non-scoring
 
->   | otherwise = g { ring_   = (place m ring_)
+>   | otherwise = g { ring_   = place m ring_
 >                   , points_ = 0
 >                   }
 
