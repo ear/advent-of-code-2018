@@ -1,5 +1,6 @@
 > {-# language RecordWildCards #-}
 > {-# language ViewPatterns #-}
+> {-# language LambdaCase #-}
 > module Main where
 
 marbles = [0..]
@@ -44,6 +45,7 @@ part 1 question
   - when the game ends what is the elfs' highest score?
 
 
+> import Debug.Trace
 > import Data.Map.Strict ( Map, (!) )
 > import qualified Data.Map.Strict as M
 
@@ -137,6 +139,7 @@ Part 1:
 > part1 players lastMarble
 >   = maximum . scores_
 >   . head . dropWhile ((lastMarble /=) . marble_)
+>   . map (\case g@Game{..} | marble_ `mod` 1000 == 0 -> traceShow marble_ g | otherwise -> g)
 >   . iterate tick
 >   . mkGame $ players
 
