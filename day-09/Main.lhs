@@ -84,7 +84,7 @@ pop removes currently focused, and focuses the right one
 > mkGame players = Game
 >   { elf_     = 0
 >   , players_ = players
->   , marble_  = 1 -- or 0 ?
+>   , marble_  = 0
 >   , ring_    = emptyRing
 >   , scores_  = M.fromList $ zip [0..players-1] (repeat 0)
 >   , points_  = 0
