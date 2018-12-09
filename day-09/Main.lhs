@@ -101,7 +101,11 @@ pop removes currently focused, and focuses the right one
 
 Scoring
 
->   | m `mod` 23 == 0 = undefined
+>   | m `mod` 23 == 0 =
+>     let (m',ring') = pop ring_
+>     in g { ring_   = ring'
+>          , points_ = m + m'
+>          }
 
 Non-scoring
 
