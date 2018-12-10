@@ -49,7 +49,7 @@ tick :: Sky -> Sky
 tick = map (\(p,v) -> (move p v,v))
 
 move :: P -> V -> P
-move (x,y) (vx,vy) = (x+vx,x+vy)
+move (x,y) (vx,vy) = (x+vx,y+vy)
 
 -- Movie
 
