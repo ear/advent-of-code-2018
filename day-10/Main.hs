@@ -43,6 +43,11 @@ showSky s = L.intercalate "\n" [ [ showLight s (x,y) | x <- rangeX ] | y <- rang
 minMax :: (Ord a, Foldable f) => f a -> (a,a)
 minMax xs = (minimum xs, maximum xs)
 
+area :: Sky -> Int
+area s = (xM - xm) * (yM - ym)
+  where
+    (minMax -> (xm,xM), minMax -> (ym,yM)) = unzip $ map fst s
+
 -- Time
 
 tick :: Sky -> Sky
@@ -66,5 +71,14 @@ movie_ s n = movie_ (tick s) (pred n)
 -- Main
 
 main = do
-  s <- mkSky . map parse . lines <$> readFile "test.txt"
-  mapM_ (\s -> p s >> putChar '\n') . take 4 . iterate tick $ s
+  s <- mkSky . map parse . lines <$> readFile "input.txt"
+  -- mapM_ (\s -> p s >> putChar '\n') . take 4 . iterate tick $ s
+  let ss = iterate tick s
+  let iass = map (\(i,sky) -> (area sky,(i,sky))) . zip [0..] $ ss
+  let i = findMin iass
+  movie (ss !! (i-2)) 5
+
+findMin :: [(Int,(Int,Sky))] -> Int
+findMin = go maxBound
+  where
+    go m ((a,(i,_)):xs) | a > m = i-1 | otherwise = go a xs
