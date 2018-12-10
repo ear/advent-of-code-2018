@@ -77,6 +77,7 @@ main = do
   let iass = map (\(i,sky) -> (area sky,(i,sky))) . zip [0..] $ ss
   let i = findMin iass
   movie (ss !! (i-2)) 5
+  print i
 
 findMin :: [(Int,(Int,Sky))] -> Int
 findMin = go maxBound
