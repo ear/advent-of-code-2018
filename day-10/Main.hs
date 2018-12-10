@@ -2,15 +2,7 @@
 
 module Main where
 
--- import Debug.Trace
-
-import Data.Map.Strict ( Map )
-
-import qualified Data.Map.Strict as M
-import qualified Data.List       as L
-
-traceShow _ x = x
-traceShowId x = x
+import qualified Data.List as L ( intercalate )
 
 type P = (Int,Int) -- Position
 type V = (Int,Int) -- Velocity
@@ -37,8 +29,8 @@ showSky :: Sky -> String
 showSky s = L.intercalate "\n" [ [ showLight s (x,y) | x <- rangeX ] | y <- rangeY ]
   where
     (minMax -> (xm,xM), minMax -> (ym,yM)) = unzip $ map fst s
-    rangeX = traceShowId [xm .. xM]
-    rangeY = traceShowId [ym .. yM]
+    rangeX = [xm .. xM]
+    rangeY = [ym .. yM]
 
 minMax :: (Ord a, Foldable f) => f a -> (a,a)
 minMax xs = (minimum xs, maximum xs)
@@ -63,7 +55,7 @@ p = putStrLn . showSky
 
 movie :: Sky -> Int -> IO ()
 movie s 0 = p s
-movie s n = traceShow s $ p s >> movie (tick s) (pred n)
+movie s n = p s >> movie (tick s) (pred n)
 
 movie_ s 0 = p s
 movie_ s n = movie_ (tick s) (pred n)
