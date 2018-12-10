@@ -2,10 +2,15 @@
 
 module Main where
 
+-- import Debug.Trace
+
 import Data.Map.Strict ( Map )
 
 import qualified Data.Map.Strict as M
 import qualified Data.List       as L
+
+traceShow _ x = x
+traceShowId x = x
 
 type P = (Int,Int) -- Position
 type V = (Int,Int) -- Velocity
@@ -20,37 +25,46 @@ parse = (\[a,b,c,d] -> ((a,b),(c,d))) . map read . words . map clean
 
 -- Sky
 
-type Sky = Map P V
+type Sky = [(P,V)]
 
 mkSky :: [Entry] -> Sky
-mkSky = M.fromList
+mkSky = id
 
 showLight :: Sky -> P -> Char
-showLight s c | c `M.member` s = '#' | otherwise = '.'
+showLight s c | c `elem` (map fst s) = '#' | otherwise = '.'
 
 showSky :: Sky -> String
 showSky s = L.intercalate "\n" [ [ showLight s (x,y) | x <- rangeX ] | y <- rangeY ]
   where
-    (minMax -> (xm,xM), minMax -> (ym,yM)) = unzip . M.keys $ s
-    rangeX = [xm .. xM]
-    rangeY = [ym .. yM]
+    (minMax -> (xm,xM), minMax -> (ym,yM)) = unzip $ map fst s
+    rangeX = traceShowId [xm .. xM]
+    rangeY = traceShowId [ym .. yM]
 
 minMax :: (Ord a, Foldable f) => f a -> (a,a)
 minMax xs = (minimum xs, maximum xs)
 
-p :: Sky -> IO ()
-p = putStrLn . showSky
-
 -- Time
 
 tick :: Sky -> Sky
-tick = M.mapWithKey move
+tick = map (\(p,v) -> (move p v,v))
 
 move :: P -> V -> P
 move (x,y) (vx,vy) = (x+vx,x+vy)
+
+-- Movie
+
+p :: Sky -> IO ()
+p = putStrLn . showSky
+
+movie :: Sky -> Int -> IO ()
+movie s 0 = p s
+movie s n = traceShow s $ p s >> movie (tick s) (pred n)
+
+movie_ s 0 = p s
+movie_ s n = movie_ (tick s) (pred n)
 
 -- Main
 
 main = do
   s <- mkSky . map parse . lines <$> readFile "test.txt"
-  mapM_ (\s -> p s >> putChar '\n') . iterate tick $ s
+  mapM_ (\s -> p s >> putChar '\n') . take 4 . iterate tick $ s
