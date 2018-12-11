@@ -10,7 +10,7 @@ import Data.Ord
 import Data.Foldable
 
 input = 7139
--- input = 42
+-- input = 18
 
 -- (1,1) ... (300,1)
 -- ...          ...
@@ -21,12 +21,15 @@ type Grid = Map Coord Power
 
 onEdge (x,y) = x == 1 || x == 300 || y == 1 || y == 300
 
-square g c
-  | onEdge c   = Nothing
+-- a square is described by its topleft coord and its size
+outside size (x,y) = x < 1 || x + (size-1) > 300 || y < 1 || y + (size-1) > 300
+
+square g size c
+  | outside size c = Nothing
   | otherwise  = Just $ M.restrictKeys g (S.fromAscList cs)
   where
     (cx,cy) = c
-    cs = [ (x,y) | x <- [cx-1,cx,cx+1], y <- [cy-1,cy,cy+1] ]
+    cs = [ (x,y) | x <- [cx..cx+size-1], y <- [cy..cy+size-1] ]
 
 topleft = minimum . M.keys
 
@@ -48,10 +51,23 @@ grid = M.fromList [ (c, power c) | c <- coords ]
 
 coords = [ (x,y) | x <- [1..300], y <- [1..300] ]
 
-search :: Grid -> Coord
-search g = topleft . fst . maximumBy (comparing snd) $ ss
+--
+
+-- sizes = [1..300]
+-- 
+type Size = Int
+-- 
+-- powers :: Map (Size,Coord) Power
+
+
+
+search :: Size -> Grid -> (Size, Grid)
+search size g = maximumBy (comparing fst) $ ss
   where
-    ss = [ (s, sum s) | Just s <- square grid <$> coords ]
+    ss = [ (sum s, s) | Just s <- square grid size <$> coords ]
+
+--
 
 main = do
-  print $ search grid
+  print . topleft . snd . search 3 $ grid
+  print . fmap topleft . maximumBy (comparing fst) $ [ search n grid | n <- [1..300] ]
