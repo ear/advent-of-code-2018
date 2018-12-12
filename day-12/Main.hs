@@ -12,7 +12,7 @@ type Offset = Int
 
 offset = 8 :: Offset
 
-rowSize = 140
+rowSize = 240
 
 type Row = (Offset, Array Int Bool)
 
@@ -76,6 +76,21 @@ part1 rules begin = do
   mapM_ (putStrLn . showRow) rows
   print . sumRow . last $ rows
 
+part2 rules begin = do
+  let rows = evolve 110 rules (fromString begin)
+  mapM_ (putStrLn . showRow) rows
+  let sums     = map sumRow rows
+      diffs    = zipWith subtract (init sums) (tail sums)
+      (i,diff) = firstRepeating diffs
+  print $ predict (sums !! i) i diff 50000000000
+
+firstRepeating xs = (i,diff)
+  where
+    (i,(diff:_)) = head . dropWhile ((\(a:b:c:d:_) -> not (a==b && a==c && a==d)) . snd) . zip [1..] . L.tails $ xs
+
+predict s i d n = s + (n - i) * d
+
 main = do
   -- part1 es "#..#.#..##......###...###..........."
-  part1 rs "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
+  -- part1 rs "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
+  part2 rs "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
