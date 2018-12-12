@@ -1,6 +1,5 @@
 module Main where
 
-import Debug.Trace
 
 import Data.Array.IArray ( Array, (//), (!) )
 
@@ -10,9 +9,9 @@ import qualified Data.List as L
 
 type Offset = Int
 
-offset = 10 :: Offset
+offset = 8 :: Offset
 
-rowSize = 300
+rowSize = 50
 
 type Row = (Offset, Array Int Bool)
 
@@ -43,8 +42,9 @@ type Rules = [Rule]
 
 tick :: Rules -> Row -> Row
 tick rules (offset,row)
-  | row ! 2           = error "hit left bound"  -- row!1 has to look at row!-1
-  | row ! (rowSize-3) = error "hit right bound" -- symmetrically on the right end
+  -- bounds check: if there is a plant at 2 from either end, bail out
+  | row ! 2           = error "hit left bound"
+  | row ! (rowSize-3) = error "hit right bound"
   | otherwise = (offset,row // assocs)
     where
       assocs = [ (i, match rules (map snd pots)) | (i,pots) <- zip [2..] . take ((rowSize+1) - 5) . map (take 5) . L.tails . A.assocs $ row ]
@@ -54,35 +54,22 @@ match :: Rules
       -> Bool
 match []     xs = xs!!2
 match ((r,next):rs) xs
-  | r == xs   = traceShow ("YA",r,next,xs) $ next
-  | otherwise = traceShow ("NO",r,next,xs) $ match rs xs
-    where
-      traceShow _ x = x
+  | r == xs   = next
+  | otherwise = match rs xs
+
+evolve :: Int -> Rules -> Row -> [Row]
+evolve n rules = take (succ n) . iterate (tick rules)
+
+--
 
 t = True
 f = False
 
--- rs = [ ( [f,f,f,t,f], t )
---      , ( [f,f,f,t,t], t )
---      ]
-
-es = [ ([f,f,f,t,t],t),
-       ([f,f,t,f,f],t),
-       ([f,t,f,f,f],t),
-       ([f,t,f,t,f],t),
-       ([f,t,f,t,t],t),
-       ([f,t,t,f,f],t),
-       ([f,t,t,t,t],t),
-       ([t,f,t,f,t],t),
-       ([t,f,t,t,t],t),
-       ([t,t,f,t,f],t),
-       ([t,t,f,t,t],t),
-       ([t,t,t,f,f],t),
-       ([t,t,t,f,t],t),
-       ([t,t,t,t,f],t),
-       ([f,f,t,t,f],f),
-       ([f,f,t,f,t],f),
-       ([t,f,t,f,f],f),
+es :: Rules
+es = [ ([f,f,f,t,t],t), ([f,f,t,f,f],t), ([f,t,f,f,f],t), ([f,t,f,t,f],t), ([f,t,f,t,t],t), ([f,t,t,f,f],t), ([f,t,t,t,t],t), ([t,f,t,f,t],t), ([t,f,t,t,t],t), ([t,t,f,t,f],t), ([t,t,f,t,t],t), ([t,t,t,f,f],t), ([t,t,t,f,t],t), ([t,t,t,t,f],t),
+       ([f,f,t,t,f],f), -- ..##.
+       ([f,f,t,f,t],f), -- ..#.#
+       ([t,f,t,f,f],f), -- #.#..
        ([f,f,t,t,t],f), -- ..###
        ([f,t,t,t,f],f), -- .###.
        ([f,t,t,f,t],f), -- .##.#
@@ -90,57 +77,15 @@ es = [ ([f,f,f,t,t],t),
        ([t,f,t,t,f],f)  -- #.##.
        ]
 
-runExample = do
-  mapM_ (putStrLn . showRow) rows
-  print . sumRow . last $ rows
-  where
-    rows = take 21 . iterate (tick es) . fromString $ "#..#.#..##......###...###..........."
-
-rs = [ ([f,t,t,t,f],t),
-       ([t,t,t,f,t],t),
-       ([t,f,f,f,f],f),
-       ([f,f,t,f,f],f),
-       ([t,t,f,t,f],f),
-       ([f,f,f,t,f],f),
-       ([f,t,f,f,f],t),
-       ([f,t,t,f,f],f),
-       ([f,f,t,f,t],f),
-       ([t,f,f,t,f],f),
-       ([f,f,f,f,t],f),
-       ([t,t,f,f,t],t),
-       ([f,f,t,t,f],t),
-       ([f,t,t,f,t],t),
-       ([f,t,f,t,f],f),
-       ([f,f,f,f,f],f),
-       ([t,t,t,t,t],f),
-       ([f,t,t,t,t],t),
-       ([t,t,t,f,f],f),
-       ([f,t,f,f,t],t),
-       ([t,f,t,f,t],t),
-       ([t,f,f,t,t],t),
-       ([t,f,f,f,t],t),
-       ([f,t,f,t,t],t),
-       ([t,t,f,t,t],f),
-       ([f,f,t,t,t],f),
-       ([t,f,t,t,t],f),
-       ([t,t,t,t,f],t),
-       ([t,f,t,t,f],t),
-       ([t,t,f,f,f],t),
-       ([t,f,t,f,f],f),
-       ([f,f,f,t,t],t)]
-
-evolve :: Int -> Rules -> Row -> [Row]
-evolve n rules = take (succ n) . iterate (tick rules)
+rs :: Rules
+rs = [ ([f,t,t,t,f],t), ([t,t,t,f,t],t), ([t,f,f,f,f],f), ([f,f,t,f,f],f), ([t,t,f,t,f],f), ([f,f,f,t,f],f), ([f,t,f,f,f],t), ([f,t,t,f,f],f), ([f,f,t,f,t],f), ([t,f,f,t,f],f), ([f,f,f,f,t],f), ([t,t,f,f,t],t), ([f,f,t,t,f],t), ([f,t,t,f,t],t), ([f,t,f,t,f],f), ([f,f,f,f,f],f), ([t,t,t,t,t],f), ([f,t,t,t,t],t), ([t,t,t,f,f],f), ([f,t,f,f,t],t), ([t,f,t,f,t],t), ([t,f,f,t,t],t), ([t,f,f,f,t],t), ([f,t,f,t,t],t), ([t,t,f,t,t],f), ([f,f,t,t,t],f), ([t,f,t,t,t],f), ([t,t,t,t,f],t), ([t,f,t,t,f],t), ([t,t,f,f,f],t), ([t,f,t,f,f],f), ([f,f,f,t,t],t)]
 
 --
 
-test = (sumRow $ fromString "#") == 0
-
-input = fromString "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
-
-main = do
-  let row = input
-  let rules = rs
-  let rows = evolve 20 rules row
+part1 rules begin = do
+  let rows = evolve 20 rules (fromString begin)
   mapM_ (putStrLn . showRow) rows
   print . sumRow . last $ rows
+
+main = do
+  part1 es "#..#.#..##......###...###..........."
