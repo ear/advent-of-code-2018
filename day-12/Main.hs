@@ -12,7 +12,7 @@ type Offset = Int
 
 offset = 10 :: Offset
 
-rowSize = 160
+rowSize = 300
 
 type Row = (Offset, Array Int Bool)
 
@@ -32,6 +32,9 @@ showRow (offset,row) = [ showPlant p | (_,p) <- A.assocs row ]
 
 sumRow :: Row -> Int
 sumRow (offset,row) = sum [ i-offset | (i,True) <- A.assocs row ]
+
+idxs :: Row -> [Int]
+idxs (offset,row) = [ i-offset | (i,True) <- A.assocs row ]
 
 --
 
@@ -126,16 +129,18 @@ rs = [ ([f,t,t,t,f],t),
        ([t,f,t,f,f],f),
        ([f,f,f,t,t],t)]
 
-evolve :: Rules -> Row -> [Row]
-evolve rules = take 21 . iterate (tick rules)
+evolve :: Int -> Rules -> Row -> [Row]
+evolve n rules = take (succ n) . iterate (tick rules)
 
 --
 
 test = (sumRow $ fromString "#") == 0
 
+input = fromString "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
+
 main = do
-  let row = fromString "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
+  let row = input
   let rules = rs
-  let rows = evolve rules row
+  let rows = evolve 20 rules row
   mapM_ (putStrLn . showRow) rows
   print . sumRow . last $ rows
