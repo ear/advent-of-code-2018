@@ -12,7 +12,7 @@ type Offset = Int
 
 offset = 8 :: Offset
 
-rowSize = 50
+rowSize = 140
 
 type Row = (Offset, Array Int Bool)
 
@@ -77,4 +77,5 @@ part1 rules begin = do
   print . sumRow . last $ rows
 
 main = do
-  part1 es "#..#.#..##......###...###..........."
+  -- part1 es "#..#.#..##......###...###..........."
+  part1 rs "##...#...###.#.#..#...##.###..###....#.#.###.#..#....#..#......##..###.##..#.##..##..#..#.##.####.##"
