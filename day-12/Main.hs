@@ -1,5 +1,6 @@
-module Main where
+{-# language ViewPatterns #-}
 
+module Main where
 
 import Data.Array.IArray ( Array, (//), (!) )
 
@@ -37,7 +38,7 @@ idxs (offset,row) = [ i-offset | (i,True) <- A.assocs row ]
 
 --
 
-type Rule = ([Bool],Bool) -- (pattern,next)
+type Rule = [Bool] -- growth pattern
 type Rules = [Rule]
 
 tick :: Rules -> Row -> Row
@@ -47,15 +48,12 @@ tick rules (offset,row)
   | row ! (rowSize-3) = error "hit right bound"
   | otherwise = (offset,row // assocs)
     where
-      assocs = [ (i, match rules (map snd pots)) | (i,pots) <- zip [2..] . take ((rowSize+1) - 5) . map (take 5) . L.tails . A.assocs $ row ]
+      assocs = [ (i, pots ?? rules) | (i,map snd -> pots) <- zip [2..] . take ((rowSize+1) - 5) . map (take 5) . L.tails . A.assocs $ row ]
 
-match :: Rules
-      -> [Bool] -- length 5
-      -> Bool
-match []     xs = xs!!2
-match ((r,next):rs) xs
-  | r == xs   = next
-  | otherwise = match rs xs
+(??) :: [Bool] -- length 5
+     -> Rules
+     -> Bool
+xs ?? rs = any (xs ==) rs
 
 evolve :: Int -> Rules -> Row -> [Row]
 evolve n rules = take (succ n) . iterate (tick rules)
@@ -66,19 +64,10 @@ t = True
 f = False
 
 es :: Rules
-es = [ ([f,f,f,t,t],t), ([f,f,t,f,f],t), ([f,t,f,f,f],t), ([f,t,f,t,f],t), ([f,t,f,t,t],t), ([f,t,t,f,f],t), ([f,t,t,t,t],t), ([t,f,t,f,t],t), ([t,f,t,t,t],t), ([t,t,f,t,f],t), ([t,t,f,t,t],t), ([t,t,t,f,f],t), ([t,t,t,f,t],t), ([t,t,t,t,f],t),
-       ([f,f,t,t,f],f), -- ..##.
-       ([f,f,t,f,t],f), -- ..#.#
-       ([t,f,t,f,f],f), -- #.#..
-       ([f,f,t,t,t],f), -- ..###
-       ([f,t,t,t,f],f), -- .###.
-       ([f,t,t,f,t],f), -- .##.#
-       ([t,t,t,t,t],f), -- #####
-       ([t,f,t,t,f],f)  -- #.##.
-       ]
+es = [ [f,f,f,t,t], [f,f,t,f,f], [f,t,f,f,f], [f,t,f,t,f], [f,t,f,t,t], [f,t,t,f,f], [f,t,t,t,t], [t,f,t,f,t], [t,f,t,t,t], [t,t,f,t,f], [t,t,f,t,t], [t,t,t,f,f], [t,t,t,f,t], [t,t,t,t,f] ]
 
 rs :: Rules
-rs = [ ([f,t,t,t,f],t), ([t,t,t,f,t],t), ([t,f,f,f,f],f), ([f,f,t,f,f],f), ([t,t,f,t,f],f), ([f,f,f,t,f],f), ([f,t,f,f,f],t), ([f,t,t,f,f],f), ([f,f,t,f,t],f), ([t,f,f,t,f],f), ([f,f,f,f,t],f), ([t,t,f,f,t],t), ([f,f,t,t,f],t), ([f,t,t,f,t],t), ([f,t,f,t,f],f), ([f,f,f,f,f],f), ([t,t,t,t,t],f), ([f,t,t,t,t],t), ([t,t,t,f,f],f), ([f,t,f,f,t],t), ([t,f,t,f,t],t), ([t,f,f,t,t],t), ([t,f,f,f,t],t), ([f,t,f,t,t],t), ([t,t,f,t,t],f), ([f,f,t,t,t],f), ([t,f,t,t,t],f), ([t,t,t,t,f],t), ([t,f,t,t,f],t), ([t,t,f,f,f],t), ([t,f,t,f,f],f), ([f,f,f,t,t],t)]
+rs = [ [f,t,t,t,f], [t,t,t,f,t], [f,t,f,f,f], [t,t,f,f,t], [f,f,t,t,f], [f,t,t,f,t], [f,t,t,t,t], [f,t,f,f,t], [t,f,t,f,t], [t,f,f,t,t], [t,f,f,f,t], [f,t,f,t,t], [t,t,t,t,f], [t,f,t,t,f], [t,t,f,f,f], [f,f,f,t,t] ]
 
 --
 
