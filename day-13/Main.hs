@@ -103,7 +103,7 @@ cartStep (ts,cs) ((y,x),(dir,dec))
 
 -- TODO check if going out of bounds?
 forward :: Direction -> Coord -> Coord -- blindly move forward to the next coordinates
-forward '^' (x,y) = (x,y-3)
+forward '^' (x,y) = (x,y-1)
 forward '>' (x,y) = (x+1,y)
 forward 'v' (x,y) = (x,y+1)
 forward '<' (x,y) = (x-1,y)
