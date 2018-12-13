@@ -39,16 +39,16 @@ fromString xs = (patch tracks,carts)
     assocs = [ ((x,y),c) | (y,ys) <- zip [0..] (lines xs), (x,c) <- zip [0..] ys ]
     bounds = ( (0,0) , fst $ maximumBy (comparing fst) assocs )
     tracks = A.array bounds assocs
+
+    carts = M.fromList . map (bimap swap asCart) . filter (isCart . snd) $ assocs
     isCart c = c `elem` "^>v<"
-    carts = M.fromList . map (bimap swap fromChar) . filter (isCart . snd) $ assocs
 
-patch :: Tracks -> Tracks -- replace carts with tracks
-patch = A.amap (\case t | t `elem` "^v" -> '|' | t `elem` "><" -> '-' | otherwise -> t)
+    -- replace carts with tracks
+    patch = A.amap (\case t | t `elem` "^v" -> '|' | t `elem` "><" -> '-' | otherwise -> t)
 
-fromChar :: Char -> Cart
-fromChar c = (c,GoLeft)
+    asCart c = (c,GoLeft) -- augment cart character with a decision
 
-showSystem :: System -> String
+showSystem :: System -> String -- overlays tiles with carts
 showSystem (ts,cs) = concat [ [ showTile (x,y) | x <- [0..xM] ] ++ "\n" | y <- [0..yM] ]
                   ++ show cs ++ "\n"
   where
@@ -78,6 +78,7 @@ step s@(Crash _ _)   _ = s
 step   (Happy s) c
   = case dir' of
       'X' -> (Just (x',y'),s')
+      -- TODO other cases
   where
     (yx',dir',s') = cartStep s c
     (y',x') = yx'
