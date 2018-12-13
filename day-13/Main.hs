@@ -1,3 +1,4 @@
+{-# language LambdaCase #-}
 {-# language PatternSynonyms #-}
 
 module Main where
@@ -9,7 +10,7 @@ import Data.Bifunctor
 
 import qualified Data.List as L
 
-import Data.Map.Strict ( Map )
+import Data.Map.Strict ( Map, (!?) )
 import qualified Data.Map.Strict as M
 
 import Data.Array.IArray ( Array, (!) )
@@ -33,7 +34,7 @@ type System    = (Tracks,Carts)
 --
 
 fromString :: String -> System
-fromString xs = (tracks,carts)
+fromString xs = (patch tracks,carts)
   where
     assocs = [ ((x,y),c) | (y,ys) <- zip [0..] (lines xs), (x,c) <- zip [0..] ys ]
     bounds = ( (0,0) , fst $ maximumBy (comparing fst) assocs )
@@ -41,16 +42,21 @@ fromString xs = (tracks,carts)
     isCart c = c `elem` "^>v<"
     carts = M.fromList . map (bimap swap fromChar) . filter (isCart . snd) $ assocs
 
+patch :: Tracks -> Tracks -- replace carts with tracks
+patch = A.amap (\case t | t `elem` "^v" -> '|' | t `elem` "><" -> '-' | otherwise -> t)
+
 fromChar :: Char -> Cart
 fromChar c = (c,GoLeft)
 
 showSystem :: System -> String
-showSystem (ts,cs) = concat [ [ showTile $ ts ! (x,y) | x <- [0..xM] ] ++ "\n" | y <- [0..yM] ]
+showSystem (ts,cs) = concat [ [ showTile (x,y) | x <- [0..xM] ] ++ "\n" | y <- [0..yM] ]
                   ++ show cs ++ "\n"
   where
     (_,(xM,yM)) = A.bounds ts
-    showTile c | c `elem` "-\\|/+^>v<" = c
-               | otherwise = ' '
+    showTile (x,y)
+      = case cs !? (y,x) of
+          Just (dir,_) -> dir
+          Nothing      -> ts ! (x,y)
 
 --
 
