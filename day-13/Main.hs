@@ -54,8 +54,8 @@ showSystem (ts,cs) = concat [ [ showTile $ ts ! (x,y) | x <- [0..xM] ] ++ "\n" |
 
 --
 
-pattern Crash c s   <- (Just c, s      )
-pattern Happy ts cs <- (Nothing,(ts,cs))
+pattern Crash c s <- (Just c, s)
+pattern Happy   s <- (Nothing,s)
 
 -- | Returns either:
 --   * Left (first crash coordinate, system froze at the crash)
@@ -63,13 +63,25 @@ pattern Happy ts cs <- (Nothing,(ts,cs))
 tick :: System -> Either (Coord,System) System
 tick s@(ts,cs)
   = case L.foldl' step (Nothing,s) (M.toAscList cs) of
-      Crash c s'    -> Left (c,s')
-      Happy ts' cs' -> Right (ts',cs')
+      Crash c s' -> Left (c,s')
+      Happy   s' -> Right s'
 
 -- | (Maybe crash, current system) -> cart -> (Maybe crash, system froze at crash)
 step :: (Maybe Coord,System) -> (Coord,Cart) -> (Maybe Coord,System)
 step s@(Crash _ _)   _ = s
-step s@(Happy ts cs) _ = s -- TODO
+step   (Happy s) c
+  = case dir' of
+      'X' -> (Just (x',y'),s')
+  where
+    (yx',dir',s') = cartStep s c
+    (y',x') = yx'
+
+cartStep :: System -> (Coord,Cart) -> (Coord,Direction,System)
+cartStep (ts,cs) ((y,x),(dir,dec)) = ((y',x'),dir',s')
+  where
+    (y',x') = (y,x)
+    dir' = 'X' -- TODO just crashing
+    s' = (ts,cs) -- TODO not updating ts nor cs
 
 --
 
