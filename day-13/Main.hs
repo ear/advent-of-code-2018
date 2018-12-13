@@ -76,19 +76,32 @@ tick s@(ts,cs)
 step :: (Maybe Coord,System) -> (Coord,Cart) -> (Maybe Coord,System)
 step s@(Crash _ _) _ = s
 step   (Happy   s) c
-  | crashed   = (Just (x',y'),s')
-  | otherwise = (Nothing     ,s')
+  | crashed   = (Just xy',s')
+  | otherwise = (Nothing ,s')
   where
-    (crashed,(y',x'),s') = cartStep s c
+    (crashed,xy',s') = cartStep s c
 
 cartStep :: System -> (Coord,Cart) -> (Bool,Coord,System)
 cartStep (ts,cs) ((y,x),(dir,dec))
   | dir == 'X' = error $ "tring to move a crashed cart at " ++ show (x,y)
-  | otherwise = (True,(y',x'),s')
+  | otherwise = (crashed,(x',y'),s')
   where
-    (y',x') = (y,x)
+    (x',y') = (x,y) -- TODO not moving
     dir' = 'X' -- TODO just crashing
     s' = (ts,cs) -- TODO not updating cs
+    crashed = dir' == 'X'
+
+forward :: Direction -> Coord -> Coord
+forward '^' (x,y) = (x,y-3)
+forward '>' (x,y) = (x+1,y)
+forward 'v' (x,y) = (x,y+1)
+forward '<' (x,y) = (x-1,y)
+
+--
+
+-- testing helpers, p input number prints successive steps unsafely
+u = \case (Right s) -> s; (Left (_,s)) -> s -- unsafe extract
+p i n = mapM_ (putStrLn . showSystem) . take n . map u . iterate (tick . u) . Right . fromString $ i
 
 --
 
