@@ -88,17 +88,18 @@ step   (Happy   s) c
 cartStep :: System -> (Coord,Cart) -> (Bool,Coord,System)
 cartStep (ts,cs) ((y,x),(dir,dec))
   | dir == 'X' = error $ "tring to move a crashed cart at " ++ show (x,y)
-  | otherwise = (crashed,xy',s')
+  | otherwise = (crashed,(x',y'),s')
   where
-    xy' = forward dir (x,y)
-    p = ts ! (x,y) -- previous
-    t = ts ! xy'   -- target
+    (x',y') = forward dir (x,y)
+    p = ts ! (x ,y ) -- previous
+    t = ts ! (x',y') -- target
     (dir',dec')
-      | isCart t = ('X',dec) -- TODO just crashing
+      | (y',x') `M.member` cs = ('X',dec)
       | isPipe t = (dir,dec)
       | isCurve t = (curve dir t,dec)
       | isIntersection t = turn (dir,dec)
-    s' = (ts,cs) -- TODO not updating cs
+    cs' = M.insert (y',x') (dir',dec') . M.delete (y,x) $ cs
+    s' = (ts,cs')
     crashed = dir' == 'X'
 
 -- TODO check if going out of bounds?
@@ -119,9 +120,9 @@ curve '<'  '/' = 'v'
 curve '<' '\\' = '^'
 curve a b = error $ "unhandled curve: " ++ show (a,b)
 
--- turning at an + intersection
+-- turning at an intersection
 turn :: Cart -> Cart
-turn = undefined
+turn (dir,dec) = (decide dir dec, nextDecision dec)
 
 --
 
@@ -154,6 +155,5 @@ part1 = fst . fromLeft (error "??") . until isLeft (tick . fromRight (error "??"
 --
 
 main = do
-  input <- readFile "test.txt"
-  let s = fromString input
-  putStr . showSystem $ s
+  s <- fromString <$> readFile "input.txt"
+  print $ part1 s
