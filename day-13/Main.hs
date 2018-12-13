@@ -33,6 +33,11 @@ type System    = (Tracks,Carts)
 
 --
 
+isCart = (`elem` "^>v<X")
+isPipe = (`elem` "-|")
+isCurve = (`elem` "/\\")
+isIntersection = ('+' ==)
+
 fromString :: String -> System
 fromString xs = (patch tracks,carts)
   where
@@ -41,7 +46,6 @@ fromString xs = (patch tracks,carts)
     tracks = A.array bounds assocs
 
     carts = M.fromList . map (bimap swap asCart) . filter (isCart . snd) $ assocs
-    isCart c = c `elem` "^>v<"
 
     -- replace carts with tracks
     patch = A.amap (\case t | t `elem` "^v" -> '|' | t `elem` "><" -> '-' | otherwise -> t)
@@ -84,18 +88,40 @@ step   (Happy   s) c
 cartStep :: System -> (Coord,Cart) -> (Bool,Coord,System)
 cartStep (ts,cs) ((y,x),(dir,dec))
   | dir == 'X' = error $ "tring to move a crashed cart at " ++ show (x,y)
-  | otherwise = (crashed,(x',y'),s')
+  | otherwise = (crashed,xy',s')
   where
-    (x',y') = (x,y) -- TODO not moving
-    dir' = 'X' -- TODO just crashing
+    xy' = forward dir (x,y)
+    p = ts ! (x,y) -- previous
+    t = ts ! xy'   -- target
+    (dir',dec')
+      | isCart t = ('X',dec) -- TODO just crashing
+      | isPipe t = (dir,dec)
+      | isCurve t = (curve dir t,dec)
+      | isIntersection t = turn (dir,dec)
     s' = (ts,cs) -- TODO not updating cs
     crashed = dir' == 'X'
 
-forward :: Direction -> Coord -> Coord
+-- TODO check if going out of bounds?
+forward :: Direction -> Coord -> Coord -- blindly move forward to the next coordinates
 forward '^' (x,y) = (x,y-3)
 forward '>' (x,y) = (x+1,y)
 forward 'v' (x,y) = (x,y+1)
 forward '<' (x,y) = (x-1,y)
+
+-- curving at a / or \
+curve '^'  '/' = '>'
+curve '^' '\\' = '<'
+curve 'v'  '/' = '<'
+curve 'v' '\\' = '>'
+curve '>'  '/' = '^'
+curve '>' '\\' = 'v'
+curve '<'  '/' = 'v'
+curve '<' '\\' = '^'
+curve a b = error $ "unhandled curve: " ++ show (a,b)
+
+-- turning at an + intersection
+turn :: Cart -> Cart
+turn = undefined
 
 --
 
@@ -108,6 +134,17 @@ p i n = mapM_ (putStrLn . showSystem) . take n . map u . iterate (tick . u) . Ri
 nextDecision GoLeft     = GoStraight
 nextDecision GoStraight = GoRight
 nextDecision GoRight    = GoLeft
+
+decide  c  GoStraight = c
+decide '^' GoLeft = '<'
+decide '>' GoLeft = '^'
+decide 'v' GoLeft = '>'
+decide '<' GoLeft = 'v'
+decide '^' GoRight = '>'
+decide '>' GoRight = 'v'
+decide 'v' GoRight = '<'
+decide '<' GoRight = '^'
+
 
 --
 
