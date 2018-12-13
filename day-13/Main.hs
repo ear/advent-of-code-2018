@@ -68,27 +68,27 @@ pattern Happy   s <- (Nothing,s)
 --   * Right (new system)
 tick :: System -> Either (Coord,System) System
 tick s@(ts,cs)
-  = case L.foldl' step (Nothing,s) (M.toAscList cs) of
+  = case L.foldl' step (Nothing,s) (M.toAscList cs) of -- (y,x) means toAscList picks carts in correct order
       Crash c s' -> Left (c,s')
       Happy   s' -> Right s'
 
 -- | (Maybe crash, current system) -> cart -> (Maybe crash, system froze at crash)
 step :: (Maybe Coord,System) -> (Coord,Cart) -> (Maybe Coord,System)
-step s@(Crash _ _)   _ = s
-step   (Happy s) c
-  = case dir' of
-      'X' -> (Just (x',y'),s')
-      -- TODO other cases
+step s@(Crash _ _) _ = s
+step   (Happy   s) c
+  | crashed   = (Just (x',y'),s')
+  | otherwise = (Nothing     ,s')
   where
-    (yx',dir',s') = cartStep s c
-    (y',x') = yx'
+    (crashed,(y',x'),s') = cartStep s c
 
-cartStep :: System -> (Coord,Cart) -> (Coord,Direction,System)
-cartStep (ts,cs) ((y,x),(dir,dec)) = ((y',x'),dir',s')
+cartStep :: System -> (Coord,Cart) -> (Bool,Coord,System)
+cartStep (ts,cs) ((y,x),(dir,dec))
+  | dir == 'X' = error $ "tring to move a crashed cart at " ++ show (x,y)
+  | otherwise = (True,(y',x'),s')
   where
     (y',x') = (y,x)
     dir' = 'X' -- TODO just crashing
-    s' = (ts,cs) -- TODO not updating ts nor cs
+    s' = (ts,cs) -- TODO not updating cs
 
 --
 
