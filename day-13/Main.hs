@@ -1,6 +1,9 @@
+{-# language PatternSynonyms #-}
+
 module Main where
 
 import Data.Ord
+import Data.Either
 import Data.Foldable
 import Data.Bifunctor
 
@@ -19,16 +22,17 @@ swap (x,y) = (y,x)
 --
 
 type Tile      = Char                          -- - \ | / +
-type Direction = Char                          -- ^ > v <
+type Direction = Char                          -- ^ > v < X
 data Decision  = GoLeft | GoStraight | GoRight deriving Show
 type Coord     = (Int,Int)
 type Cart      = (Direction,Decision)          -- current direction, next decision
 type Carts     = Map Coord Cart                -- (y,x) -> (direction,decision)
-type Tracks    = (Array Coord Tile, Carts)     -- 150x150, carts' coords
+type Tracks    = Array Coord Tile              -- 150x150
+type System    = (Tracks,Carts)
 
 --
 
-fromString :: String -> Tracks
+fromString :: String -> System
 fromString xs = (tracks,carts)
   where
     assocs = [ ((x,y),c) | (y,ys) <- zip [0..] (lines xs), (x,c) <- zip [0..] ys ]
@@ -40,8 +44,8 @@ fromString xs = (tracks,carts)
 fromChar :: Char -> Cart
 fromChar c = (c,GoLeft)
 
-showTracks :: Tracks -> String
-showTracks (ts,cs) = concat [ [ showTile $ ts ! (x,y) | x <- [0..xM] ] ++ "\n" | y <- [0..yM] ]
+showSystem :: System -> String
+showSystem (ts,cs) = concat [ [ showTile $ ts ! (x,y) | x <- [0..xM] ] ++ "\n" | y <- [0..yM] ]
                   ++ show cs ++ "\n"
   where
     (_,(xM,yM)) = A.bounds ts
@@ -50,9 +54,22 @@ showTracks (ts,cs) = concat [ [ showTile $ ts ! (x,y) | x <- [0..xM] ] ++ "\n" |
 
 --
 
--- | Returns either: Left (crash,tracks) or Right tracks
-tick :: Tracks -> Either (Coord,Tracks) Tracks
-tick ts = Right ts
+pattern Crash c s   <- (Just c, s      )
+pattern Happy ts cs <- (Nothing,(ts,cs))
+
+-- | Returns either:
+--   * Left (first crash coordinate, system froze at the crash)
+--   * Right (new system)
+tick :: System -> Either (Coord,System) System
+tick s@(ts,cs)
+  = case L.foldl' step (Nothing,s) (M.toAscList cs) of
+      Crash c s'    -> Left (c,s')
+      Happy ts' cs' -> Right (ts',cs')
+
+-- | (Maybe crash, current system) -> cart -> (Maybe crash, system froze at crash)
+step :: (Maybe Coord,System) -> (Coord,Cart) -> (Maybe Coord,System)
+step s@(Crash _ _)   _ = s
+step s@(Happy ts cs) _ = s -- TODO
 
 --
 
@@ -62,7 +79,12 @@ nextDecision GoRight    = GoLeft
 
 --
 
+part1 :: System -> Coord
+part1 = fst . fromLeft (error "??") . until isLeft (tick . fromRight (error "??")) . Right
+
+--
+
 main = do
   input <- readFile "test.txt"
-  let tracks = fromString input
-  putStr . showTracks $ tracks
+  let s = fromString input
+  putStr . showSystem $ s
