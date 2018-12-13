@@ -146,11 +146,42 @@ decide '>' GoRight = 'v'
 decide 'v' GoRight = '<'
 decide '<' GoRight = '^'
 
+--
+
+tick2 :: System -> Either (Coord,System) System
+tick2 s@(ts,cs)
+  = case M.size cs' of
+      1 -> Left (fst $ M.findMin cs',s')
+      _ -> Right s'
+  where
+    s'@(_,cs') = L.foldl' step2 s (M.toAscList cs)
+
+step2 :: System -> (Coord,Cart) -> System
+step2 s@(ts,cs) ((y,x),c@(dir,_))
+  | crash     = (ts, M.delete (y',x')    . M.delete (y,x) $ cs)
+  | otherwise = (ts, M.insert (y',x') c' . M.delete (y,x) $ cs)
+  where
+    (x',y') = forward dir (x,y)
+
+    t = ts ! (x',y')
+    crash = (y',x') `M.member` cs
+
+    c' = advance c t
+
+advance c@(dir,dec) t
+  | isPipe t         = (dir,dec)
+  | isCurve t        = (curve dir t, dec)
+  | isIntersection t = turn c
 
 --
 
 part1 :: System -> Coord
 part1 = fst . fromLeft (error "??") . until isLeft (tick . fromRight (error "??")) . Right
+
+--
+
+part2 :: System -> Coord
+part2 = swap . fst . fromLeft (error "??") . until isLeft (tick2 . fromRight (error"??")) . Right
 
 --
 
