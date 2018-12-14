@@ -175,12 +175,13 @@ wat s cs
     ks = M.keys cs
     hasAny coords = any (`elem` ks) coords
 
-step2 :: System -> (Coord,Cart) -> System
-step2 s@(ts,cs) ((y,x),c@(dir,dec))
-  -- | crash     = showCollision 2 (ts, M.delete (y',x')    . M.delete (y,x) $ cs)
-  | crash     = showCollision 2 (ts, M.insert (y',x') ('X',GoStraight) . M.insert (y,x) ('X',GoStraight) $ cs)
+step2 :: System -> Coord -> System
+step2 s@(ts,cs) (y,x)
+  | (y,x) `M.notMember` cs = s
+  | crash     = showCollision 2 (ts, M.delete (y',x')    . M.delete (y,x) $ cs)
   | otherwise =                 (ts, M.insert (y',x') c' . M.delete (y,x) $ cs)
   where
+    c@(dir,dec) = cs M.! (y,x)
     (x',y') = forward dir (x,y)
 
     t = ts ! (x',y')
