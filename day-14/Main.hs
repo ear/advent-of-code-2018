@@ -1,4 +1,5 @@
 {-# language FlexibleContexts #-}
+{-# language Rank2Types #-}
 
 module Main where
 
@@ -6,6 +7,7 @@ import Debug.Trace
 
 import Data.Int
 import Data.Word
+import qualified Data.List as L
 
 import Control.Monad.ST
 import Control.Monad.ST.Unsafe
@@ -18,15 +20,30 @@ import qualified Data.Array.IArray as I
 -- type STUA s = (Word32,Word32) -> Int8 -> ST s (ST.STUArray s Word32 Int8)
 type STUA s = (Int,Int) -> Int-> ST s (ST.STUArray s Int Int)
 
---part1 :: Int -> [Int]
---part1 = takeWhile (>=0) . map fromIntegral . I.elems . make
-part1 n = search predicate extract (n+10)
-  where
-    predicate l _ = l > n+10
-    extract _ = concat . map show . take 10 . drop n
+type Predicate = forall s. Int -> ST.STUArray s Int Int -> ST s Bool
+type Extract a = forall s. Int -> ST.STUArray s Int Int -> ST s a
 
-type Predicate = Int -> [Int] -> Bool
-type Extract a = Int -> [Int] -> a
+--part1 n = search predicate extract (n+10)
+--  where
+--    predicate l _ = return $ l > n+10
+--    extract _ = concat . map show . take 10 . drop n
+
+part2 ds = search predicate extract (2^25)
+  where
+    -- n = fst $ L.foldl' (\(s,i) d -> (s+(d*10^i),succ i)) (0,0) ds
+    s = length ds
+    predicate l _ | l < s+1 = pure False
+    predicate l a = do
+      xs <- M.readArray a `traverse` [l-s..l-1]
+      if xs == ds
+      then return True
+      else do ys <- M.readArray a `traverse` [l-s-1..l-2]
+              return $ ys == ds
+    extract l a = do
+      xs <- M.readArray a `traverse` [l-s..l-1]
+      if ds == xs
+      then return $ l-s
+      else return $ l-s-1
 
 search :: Predicate -- ^ predicate
        -> Extract a -- ^ compute answer
@@ -35,7 +52,7 @@ search :: Predicate -- ^ predicate
 search p e n = runST $
   do a <- (ST.newArray :: STUA s) (0,fromIntegral n + 12) (-1)
      s <- begin a
-     go n a s 0 1
+     go (ceiling $ fromIntegral n / 2) a s 0 1
   where
     go 0 a _    _  _  = return Nothing
     go n a size e1 e2 = do
@@ -47,13 +64,13 @@ search p e n = runST $
       let e1' = (e1 + fromIntegral d1 + 1) `mod` size'
           e2' = (e2 + fromIntegral d2 + 1) `mod` size'
       if x > 0
-      then do M.writeArray a size     x
-              M.writeArray a (size+1) y
-      else do M.writeArray a size     y
-      xs <- unsafeInterleaveST (takeWhile (>=0) <$> M.getElems a)
-      if p (fromIntegral size') (map fromIntegral xs)
-      then return $ Just $ e (fromIntegral size') (map fromIntegral xs)
-      else go (pred n) a size' e1' e2'
+        then do M.writeArray a size     x
+                M.writeArray a (size+1) y
+        else do M.writeArray a size     y
+      done <- p (fromIntegral size') a
+      if done
+        then Just <$> e (fromIntegral size') a
+        else go (pred n) a size' e1' e2'
 
 begin a = do
   M.writeArray a 0 3
@@ -63,4 +80,10 @@ begin a = do
 input = 846601
 
 main = do
-  print $ part1 input
+  --print $ part1 input
+  --print $ part2 [0,1,2,4,5]
+  --print $ part2 [5,1,5,8,9]
+  --print $ part2 [9,2,5,1,0]
+  --print $ part2 [5,9,4,1,4]
+  print $ part2 [8,4,6,6,0,1]
+  --print $ part2 [0,8,4,6,0,1]
