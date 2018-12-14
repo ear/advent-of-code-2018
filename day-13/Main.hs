@@ -3,8 +3,7 @@
 
 module Main where
 
-import Debug.Trace
-import System.IO.Unsafe
+--import Debug.Trace -- see showCollision
 
 import Data.Ord
 import Data.Either
@@ -27,7 +26,7 @@ swap (x,y) = (y,x)
 
 type Tile      = Char                          -- - \ | / +
 type Direction = Char                          -- ^ > v < X
-data Decision  = GoLeft | GoStraight | GoRight deriving (Show, Eq, Ord)
+data Decision  = GoLeft | GoStraight | GoRight deriving Show
 type Coord     = (Int,Int)
 type Cart      = (Direction,Decision)          -- current direction, next decision
 type Carts     = Map Coord Cart                -- (y,x) -> (direction,decision)
@@ -135,7 +134,7 @@ p i n = mapM_ (putStrLn . showSystem) . take n . map u . iterate (tick . u) . Ri
 p2 i n = mapM_ (putStrLn . showSystem) . take n . map u . iterate (tick2 . u) . Right . fromString $ i
 p3 i n = putStrLn . showSystem . last . take n . map u . iterate (tick2 . u) . Right . fromString $ i
 p4 i n = (\(n,s) -> seq s n) . last . take n . map (second u) . iterate (bimap succ (tick2 . u)) $ (0,Right $ fromString i)
-p5 i n (x,y) m = mapM_ putStrLn $ showFocus (last . take n . map u . iterate (tick2 . u) . Right . fromString $ i) (x,y) m
+p5 i n (x,y) m = putStrLn $ showFocus (last . take n . map u . iterate (tick2 . u) . Right . fromString $ i) (x,y) m
 
 --
 
@@ -155,33 +154,30 @@ decide '<' GoRight = '^'
 
 --
 
-showPieces cs = traceShow $ L.sort $ M.keys $ cs
-
 tick2 :: System -> Either (Coord,System) System
 tick2 s@(ts,cs)
   = case M.size cs'' of
       1 -> Left (fst $ M.findMin cs'',s'')
       _ -> Right s''
   where
-    s'@(_,cs') = L.foldl' step2 s (M.toAscList $ wat s cs)
+    s'@(_,cs') = L.foldl' step2 s (map fst $ M.toAscList cs)
     cs'' = M.filter (('X'/=) . fst) cs'
     s'' = (ts,cs'')
 
-wat s cs
-  | hasAny [(83,136),(83,137),(83,138),(83,139)]
-    = seq (unsafePerformIO (mapM_ putStrLn (showFocus s (137,83) 5) >> putChar '\n')) cs
-  | otherwise = cs
-  where
-    ks = M.keys cs
-    hasAny coords = any (`elem` ks) coords
-
 step2 :: System -> Coord -> System
 step2 s@(ts,cs) (y,x)
+
+  -- the cart has already crashed
   | (y,x) `M.notMember` cs = s
+
+  -- there is a crash: remove both carts
   | crash     = showCollision 2 (ts, M.delete (y',x')    . M.delete (y,x) $ cs)
+
+  -- no crash: move the cart
   | otherwise =                 (ts, M.insert (y',x') c' . M.delete (y,x) $ cs)
+
   where
-    c@(dir,dec) = cs M.! (y,x)
+    c@(dir,_) = cs M.! (y,x)
     (x',y') = forward dir (x,y)
 
     t = ts ! (x',y')
@@ -189,22 +185,19 @@ step2 s@(ts,cs) (y,x)
 
     c' = advance c t
 
-    showCollision n = trace $ L.intercalate " "
-      [ show (cs M.! (y,x)), "@ (y,x) =", show (y,x), "against"
-      , show (cs M.! (y',x')), "@ (y',x') =", show (y',x'), "\n"
-      , show cs, "\n"
-      , show $ M.delete (y',x') $ M.delete (y,x) $ cs, "\n"
-      ] ++ "\n" ++ L.intercalate "\n" focused ++ "\n"
-      where
-        ls = lines (showSystem s)
-        (xm,ym) = (min x x',min y y')
-        (xM,yM) = (max x x',max y y')
-        focused = map (drop (xm-n) . take (xM+n)) . drop (ym-n) . take (yM+n) $ ls
+    showCollision n = trace $ L.intercalate "\n" $ map concat
+      [ [ show (cs M.! (y,x)), "@ (y,x) =", show (y,x), "against"
+        , show (cs M.! (y',x')), "@ (y',x') =", show (y',x') ]
+      , [ show cs ]
+      , [ show $ M.delete (y',x') $ M.delete (y,x) $ cs ]
+      , [ showFocus s (x,y) n ]
+      ]
+    trace _ x = x -- import Debug.Trace and comment this to show collisions
 
-showFocus s (x,y) n = focused
+showFocus s (x,y) n = L.intercalate "\n" focused
   where
     ls = lines (showSystem s)
-    focused = map (drop (x-n) . take (x+n)) . drop (y-n) . take (y+n) $ ls
+    focused = map (drop (x-n) . take (x+n+1)) . drop (y-n) . take (y+n+1) $ ls
 
 advance c@(dir,dec) t
   | isPipe t         = (dir,dec)
@@ -225,5 +218,5 @@ part2 = swap . fst . fromLeft (error "??") . until isLeft (tick2 . fromRight (er
 
 main = do
   s <- fromString <$> readFile "input.txt"
-  --print $ part1 s
+  print $ part1 s
   print $ part2 s
