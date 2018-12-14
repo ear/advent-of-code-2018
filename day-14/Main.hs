@@ -2,6 +2,8 @@
 
 module Main where
 
+import Debug.Trace
+
 import Data.Array.Unboxed ( UArray, (!), (//) )
 import qualified Data.Array.Unboxed as A
 
@@ -13,12 +15,12 @@ data T = T
   } deriving Show
 
 begin :: T
-begin = T (A.listArray (0,30) [3,7]) 2 0 1
+begin = T (A.listArray (0,846700) [3,7]) 2 0 1
 
 -- | One step of recipe making and assignment to the scoreboard
 --
 tick :: T -> T
-tick T{..} = T s' n' e1' e2'
+tick T{..} = dump $ T s' n' e1' e2'
   where
     d1 = s_ ! e1_
     d2 = s_ ! e2_
@@ -29,7 +31,11 @@ tick T{..} = T s' n' e1' e2'
     s' = s_ // (zip [n_..] $ digits sum)
     e1' = (e1_ + succ d1) `mod` n'
     e2' = (e2_ + succ d2) `mod` n'
+    dump | n' `mod` 10000 == 0 = traceShow n'
+         | otherwise           = id
 
+-- | Pretty-print
+--
 p :: T -> String
 p T{..} = line
   where
@@ -60,7 +66,16 @@ digits n = reverse $ take len ds
     ds = map (`mod` 10) $ iterate pop $ n
     pop x = truncate $ fromIntegral x / 10
 
+--
+-- Part 1
+--
+
+part1 :: Int -> [Int]
+part1 n = extract n 10 $ s_ $ until ((>= (10 + n)) . n_) tick begin
+  where
+    extract n count s = map (s !) [n..n+count-1]
+
 input = 846601
 
 main = do
-  print ()
+  print $ part1 input
