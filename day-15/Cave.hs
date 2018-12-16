@@ -112,37 +112,6 @@ type Flood = (M.Map Coord DD)
 --                     , (_,c') <- openNeighbours c ]
 --    openNeighbours = traceShowId . filter ((`M.notMember` f) . snd) . neighbours cave
 
--- | Directional Squares - open squares organized per-direction (in reading order)
-data DS = DS Squares Squares Squares Squares
-  deriving (Show)
-
-dequeue :: DS -> ([(DD,Coord)],[(DD,Coord)],[(DD,Coord)],[(DD,Coord)])
-dequeue (DS (SQ ns) (SQ ws) (SQ es) (SQ ss))
-  = (dq ns, dq ws, dq es, dq ss)
-  where
-    dq = M.toAscList
-
---enqueue :: [(DD,Coord)] -> [(DD,Coord)] -> [(DD,Coord)] -> [(DD,Coord)] -> DS
-enqueue ns ws es ss
-  = (DS (SQ $ eq 'N' ns) (SQ $ eq 'W' ws) (SQ $ eq 'E' es) (SQ $ eq 'S' ss))
-  where
-    eq dir xs = M.fromList . reverse . traceShow (dir,xs) $ xs
-
--- ^ these are nuts
-
-flood1 :: Cave -> Flood -> DS -> (Flood,DS)
-flood1 cave@Cave{..} f (dequeue -> (ns,ws,es,ss))
-  = (f',enqueue ns' ws' es' ss')
-  where
-    f' = M.unions [f,fn,fw,fe,fs]
-    (fn,fw,fe,fs) = (toF ns, toF ws, toF es, toF ss)
-    toF x = M.fromList [ (c,dd) | (dd,c) <- x ]
-
-    (ns',ws',es',ss') = (adjs ns, adjs ws, adjs es, adjs ss)
-    adjs x = [ (DD (dist+1) dir, c')
-             | (DD  dist    dir, c ) <- x
-             , (_,c') <- openNeighbours c ]
-    openNeighbours = filter ((`M.notMember` f) . snd) . neighbours cave
 
 --   C 24 16   n'bours
 -- ^ C 23 16 : 22,16 23,15 23,17 24,16
@@ -153,7 +122,8 @@ flood1 cave@Cave{..} f (dequeue -> (ns,ws,es,ss))
 -- next the filter
 
 
-p cave n = mapM_ (putStrLn . showFlood cave) . take 1 . drop (n-1) . flood cave $ C 24 16
+p cave y x n = mapM_ (putStrLn . showFlood cave) . take 1 . drop n . flood cave $ C y x
+
 -- | Neighbours of a given square
 neighbours :: Cave -> Coord -> [(Dir,Coord)]
 neighbours cave@Cave{..} (C y x) = filter (isOpen cave . snd)
@@ -174,14 +144,31 @@ isOpen Cave{..} c = c `S.member` cS_
 --        (f',s') = flood1 cave f s
 
 flood :: Cave -> Coord -> [Flood]
-flood cave c = flood0 : go flood0 squares0
+flood cave c = flood0 : go 1 flood0 squares0
   where
     flood0 = M.singleton c (DD 0 N)
-    squares0 = enqueue [n] [w] [e] [s]
+    squares0 = ([n],[w],[e],[s])
     [n,w,e,s] = map (\(dir,c) -> (DD 1 dir,c)) . neighbours cave $ c
-    go f s = f' : go f' s'
+    go i f s = f' : go (i+1) f' s'
       where
-        (f',s') = flood1 cave f s
+        (f',s') = flood1 i cave f s
+
+type OS = [(DD,Coord)]
+type DS = (OS,OS,OS,OS)
+
+flood1 :: Int -> Cave -> Flood -> DS -> (Flood,DS)
+flood1 i cave@Cave{..} f (ns,ws,es,ss)
+  = (f',(ns',ws',es',ss'))
+  where
+    f' = M.unions [f,fn,fw,fe,fs]
+    (fn,fw,fe,fs) = (\x@(a,b,c,d) -> traceShow (i,sum ([length a,length b,length c,length d]::[Int])) x) (toF ns, toF ws, toF es, toF ss)
+    toF x = M.fromList [ (c,dd) | (dd,c) <- x ]
+
+    (ns',ws',es',ss') = (adjs ns, adjs ws, adjs es, adjs ss)
+    adjs x = [ (DD (dist+1) dir, c')
+             | (DD  dist    dir, c ) <- x
+             , (_,c') <- openNeighbours c ]
+    openNeighbours = filter ((`M.notMember` f') . snd) . neighbours cave
 
 showFlood :: Cave -> Flood -> String
 showFlood cave@Cave{..} f = L.intercalate "\n"
@@ -189,7 +176,12 @@ showFlood cave@Cave{..} f = L.intercalate "\n"
 
 showTile' :: Cave -> Flood -> Coord -> Char
 showTile' Cave{..} f c | Just (DD dist dir) <- f M.!? c =
-    head . show $ dist
+    --head . show $ dist
+    case dir of
+      N -> '↑'
+      W -> '←'
+      E -> '→'
+      S -> '↓'
 showTile' Cave{..} _ c | Just Unit{..} <- cU_ M.!? c =
   case uRace_ of
     Goblin -> 'G'
