@@ -20,9 +20,6 @@ import qualified Data.Array.IArray as A
 data Coord = C Int Int -- y x
   deriving (Show, Eq, Ord)
 
--- Directions, in "reading order"
-data Dir = N | W | E | S deriving (Show, Eq, Ord)
-
 data Race = Goblin | Elf deriving Show
 
 data Unit = Unit
@@ -82,6 +79,9 @@ showTile Cave{..} c | Just Unit{..} <- cU_ M.!? c =
 showTile Cave{..} c | c `S.member` cS_ = '.'
 showTile _ _ = '#'
 
+-- | Directions, in "reading order"
+data Dir = N | W | E | S deriving (Show, Eq, Ord)
+
 -- | DD: Distance & Direction
 -- The Ord instance lets use use `minimum` to pick between the closest
 -- targets the one whose path begins with a step in the least "reading
@@ -89,86 +89,57 @@ showTile _ _ = '#'
 data DD = DD Int Dir
   deriving (Show, Eq, Ord)
 
--- | Queue of coordinate sorted by Directional Distances
-newtype Squares = SQ (M.Map DD Coord)
-  deriving (Show)
-
--- | Map of tiny cute little arrows
+-- | Map of distances and directions
 type Flood = (M.Map Coord DD)
 
--- | Compute the coordinates of the next squares to flood
--- is it true that one just needs the immediate previous level?
--- no, one needs the set of all seen coordinates too
---flood1 :: Cave -> Flood -> Squares -> (Flood,Squares)
---flood1 cave@Cave{..} f (SQ cs) = (f',(SQ cs'))
---  where
---
---    f' = new `M.union` f
---    new = M.fromList [ (c,dd) | (dd,c) <- frontier ]
---    frontier = M.toAscList cs
---
---    cs' = M.fromList [ (DD (succ dist) dir,c')
---                     | (DD dist dir,c) <- frontier
---                     , (_,c') <- openNeighbours c ]
---    openNeighbours = traceShowId . filter ((`M.notMember` f) . snd) . neighbours cave
-
-
---   C 24 16   n'bours
--- ^ C 23 16 : 22,16 23,15 23,17 24,16
--- < C 24 15 : 
--- > C 24 17 : 
--- v C 25 16 : 24,16 25,15 25,17 26,16 -- ok correct
---
--- next the filter
-
-
-p cave y x n = mapM_ (putStrLn . showFlood cave) . take 1 . drop n . flood cave $ C y x
-
--- | Neighbours of a given square
-neighbours :: Cave -> Coord -> [(Dir,Coord)]
-neighbours cave@Cave{..} (C y x) = filter (isOpen cave . snd)
-  [ (N, C (y-1) x), (W, C y (x-1)), (E, C y (x+1)), (S, C (y+1) x) ]
-
--- | Is the given square open? '.'
-isOpen :: Cave -> Coord -> Bool
-isOpen Cave{..} c = c `S.member` cS_
-
---flood :: Cave -> Coord -> [Flood]
---flood cave c = go flood0 squares0
---  where
---    squares0 = SQ . M.fromList
---             . map (\(dir,c) -> (DD 1 dir,c)) . neighbours cave $ c
---    flood0 = M.singleton c (DD 0 N)
---    go f s = f' : go f' s'
---      where
---        (f',s') = flood1 cave f s
+-- | Frontiers of 4-way parallel scan in the four directions
+type Frontiers = ([Coord],[Coord],[Coord],[Coord])
 
 flood :: Cave -> Coord -> [Flood]
-flood cave c = flood0 : go 1 flood0 squares0
+flood cave@Cave{..} c@(C y x) = fl0 : go 1 fl0 fr0
   where
-    flood0 = M.singleton c (DD 0 N)
-    squares0 = ([n],[w],[e],[s])
-    [n,w,e,s] = map (\(dir,c) -> (DD 1 dir,c)) . neighbours cave $ c
-    go i f s = f' : go (i+1) f' s'
+    fl0 = M.singleton c (DD 0 N)
+    fr0 = (ns,ws,es,ss)
+    ns | (C (y-1) x) `S.member` cS_ = [ (C (y-1) x) ]
+    ws | (C y (x-1)) `S.member` cS_ = [ (C y (x-1)) ]
+    es | (C y (x+1)) `S.member` cS_ = [ (C y (x+1)) ]
+    ss | (C (y+1) x) `S.member` cS_ = [ (C (y+1) x) ]
+    go i f r = f' : go (i+1) f' r'
       where
-        (f',s') = flood1 i cave f s
+        (f',r') = flood1 i cave f r
 
-type OS = [(DD,Coord)]
-type DS = (OS,OS,OS,OS)
-
-flood1 :: Int -> Cave -> Flood -> DS -> (Flood,DS)
-flood1 i cave@Cave{..} f (ns,ws,es,ss)
-  = (f',(ns',ws',es',ss'))
+-- | One iteration of the flooding algorithm: 4 parallel scans for each dir
+flood1 :: Int -> Cave -> Flood -> Frontiers -> (Flood,Frontiers)
+flood1 i cave@Cave{..} f (n,w,e,s)
+  = ( f' , traceShowId (n',w',e',s') )
   where
-    f' = M.unions [f,fn,fw,fe,fs]
-    (fn,fw,fe,fs) = (\x@(a,b,c,d) -> traceShow (i,sum ([length a,length b,length c,length d]::[Int])) x) (toF ns, toF ws, toF es, toF ss)
-    toF x = M.fromList [ (c,dd) | (dd,c) <- x ]
+    (fn,n') = neighbours cave (M.keysSet f) n
+    (fw,w') = neighbours cave fn w
+    (fe,e') = neighbours cave fw e
+    (fs,s') = neighbours cave fe s
+    f' = M.unions [ M.fromList [ (c,DD i N) | c <- n ]
+                  , M.fromList [ (c,DD i W) | c <- w ]
+                  , M.fromList [ (c,DD i E) | c <- e ]
+                  , M.fromList [ (c,DD i S) | c <- s ]
+                  , f ]
 
-    (ns',ws',es',ss') = (adjs ns, adjs ws, adjs es, adjs ss)
-    adjs x = [ (DD (dist+1) dir, c')
-             | (DD  dist    dir, c ) <- x
-             , (_,c') <- openNeighbours c ]
-    openNeighbours = filter ((`M.notMember` f') . snd) . neighbours cave
+-- | Neighbouring algorithm
+-- it is applied once for each of the four parallel scans (N, W, E, S)
+neighbours :: Cave -> S.Set Coord -> [Coord] -> (S.Set Coord,[Coord])
+neighbours Cave{..} seen cs = (seen',ns)
+  where
+    (seen',ns) = L.foldl' collect (seen,[]) (concatMap adjs cs)
+      where
+        collect (seen,ns) c
+          |  c `S.member` cS_
+          && c `S.notMember` seen
+          && c `M.notMember` cU_ = (S.insert c seen, (c:ns))
+          | otherwise                                = (seen           , ns    )
+
+-- | Debug print of a cave flooded at (`y`,`x`) for `n` steps
+p cave y x n
+  = mapM_ (putStrLn . showFlood cave)
+  . take 1 . drop n . flood cave $ C y x
 
 showFlood :: Cave -> Flood -> String
 showFlood cave@Cave{..} f = L.intercalate "\n"
@@ -188,4 +159,3 @@ showTile' Cave{..} _ c | Just Unit{..} <- cU_ M.!? c =
     Elf    -> 'E'
 showTile' Cave{..} _ c | c `S.member` cS_ = '.'
 showTile' _        _ _ = '#'
-
