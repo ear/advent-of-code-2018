@@ -6,13 +6,12 @@
 
 module Main where
 
-import System.Environment
-
 import Text.Printf
 
 import Data.Foldable
 import Data.Bifunctor
 import Control.Arrow hiding ( first, second )
+import Control.Monad
 
 import qualified Data.Set          as S
 import qualified Data.List         as L
@@ -54,13 +53,13 @@ type Water = Tree Coord
 
 -- | Add ~ Still tiles to the gS and remove them from gF
 (=~) :: Gnd -> [Coord] -> Gnd
-g@Gnd{..} =~ (filter (\(y,_) -> 0 < y && y < yM) -> cs)
+g@Gnd{..} =~ (filter (\(y,_) -> y <= yM) -> cs)
   = g { gS = L.foldl' (\s c -> S.insert c s) gS cs
       , gF = L.foldl' (\f c -> S.delete c f) gF cs }
 
 -- | Add | Flowing tiles to the gF
 (=|) :: Gnd -> [Coord] -> Gnd
-g@Gnd{..} =| (filter (\(y,_) -> 0 < y && y < yM) -> cs)
+g@Gnd{..} =| (filter (\(y,_) -> y <= yM) -> cs)
   = g { gF = L.foldl' (\f c -> S.insert c f) gF cs }
 
 --
@@ -200,7 +199,7 @@ tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
 p :: Int -> Int -> IO ()
 p i n = do
-  g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
+  g <- fromCoords . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
   mapM_ dump . take 1 . drop n . iterate tick $ g
     where
       dump g = do
@@ -211,8 +210,8 @@ p i n = do
 
 --
 
-fromCoords :: (Int,[[Coord]]) -> Gnd
-fromCoords (dx,yxs) = Gnd ym yM xm xM m (One (0,500+dx) Nothing) S.empty (S.singleton (0,500+dx))
+fromCoords :: [[Coord]] -> Gnd
+fromCoords yxs = Gnd ym yM xm xM m (One (0,500) Nothing) S.empty (S.singleton (0,500))
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . map toClay . L.sort . concat $ yxs
@@ -261,39 +260,35 @@ extent :: Int -> [[Coord]] -> (Coord,Coord)
 extent n = padX n . bimap minMax minMax . unzip . concat
   where
     minMax = minimum &&& maximum
-    padX n = (const 0 *** succ) *** (subtract n *** (n+))
-
-frame :: [[Coord]] -> (Int,[[Coord]])
-frame yxs = (negate xm,translateX (negate xm) yxs)
-  where
-    translateX :: Int -> [[Coord]] -> [[Coord]]
-    translateX dx = map (map (second (dx +)))
-    ((ym,yM),(xm,xM)) = extent 1 yxs
+    padX n = second (subtract n *** (n+))
 
 --
 
 main :: IO ()
 main = do
-  (i:maxIters:n:_) <- map (read :: String -> Int) <$> getArgs
-  g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
-  let (iters,g') = solve maxIters g
-  putStrLn . showGnd' n $ g'
-  let countStill = S.size $ gS g'
-      countFlowing = S.size $ gF g'
-  printf "Iterations: %d\nStill: %d\nFlowing: %d (one is the spout)\nTotal: %d\n" iters countStill countFlowing (countStill+countFlowing-1)
+  g <- fromCoords . parse <$> readFile "input.txt"
+  --putStrLn . showGnd $ g
+  let (solved,iters,g'@Gnd{..}) = solve 100000 g
+  let (still,flowing) = ( S.size . S.filter (\(y,_) -> ym <= y && y <= yM) $ gS
+                        , S.size . S.filter (\(y,_) -> ym <= y && y <= yM) $ gF)
+  when (not solved) $ do
+    printf "MAX ITERATIONS HIT: NOT A SOLUTION\n"
+  printf "Iterations: %d\n" iters
+  printf "Still Water: %d\n" still
+  printf "Flowing Water: %d\n" flowing
+  printf "Total: %d\n" (still + flowing)
 
 count :: Gnd -> (Int,Int)
-count Gnd{..} = (S.size $! gS, S.size $! gF)
+count Gnd{..} = (S.size gS, S.size gF)
 
-solve :: Int -> Gnd -> (Int,Gnd)
-solve maxIters = solve' maxIters 0
-
-solve' :: Int -> Int -> Gnd -> (Int,Gnd)
-solve' maxIters i g
-  | i == maxIters = (i,g')
-  | s == s'   = (i,g')
-  | otherwise = solve' maxIters (succ i) g'
-    where
-      g' = tick g
-      s = count g
-      s' = count g'
+solve :: Int -> Gnd -> (Bool {- solved -}, Int {- iterations -}, Gnd {- solution -})
+solve maxIters = solve' 1
+  where
+    solve' i g
+      | s == s'       = (True ,i,g')
+      | i == maxIters = (False,i,g')
+      | otherwise     = solve' (succ i) g'
+        where
+          g' = tick g
+          s  = count g
+          s' = count g'
