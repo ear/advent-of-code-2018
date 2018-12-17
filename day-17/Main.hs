@@ -5,6 +5,8 @@
 
 module Main where
 
+import System.Environment
+
 import Text.Printf
 
 import Data.Foldable
@@ -201,8 +203,20 @@ showGnd Gnd{..} = L.intercalate "\n"
           Clay  -> '#'
     showTile _ _ = '.'
 
---
+-- show only the last n lines
+showGnd' :: Int -> Gnd -> String
+showGnd' n Gnd{..} = L.intercalate "\n"
+  [ [ showTile y x | x <- [0..xM+1] ] | y <- [max 1 (yM-(n+1))..yM] ]
+  where
+    showTile y x | (y,x) `S.member` gS = '~'
+    showTile y x | (y,x) `S.member` gF = '|'
+    showTile y x | Just tile <- gM M.!? (y,x)
+      = case tile of
+          Sand  -> '.'
+          Clay  -> '#'
+    showTile _ _ = '.'
 
+--
 
 parse :: String -> [[Coord]]
 parse = map parseLine . lines
@@ -232,18 +246,11 @@ frame yxs = (negate xm,translateX (negate xm) yxs)
 --
 
 main :: IO ()
-main = p 0 20000
-
---main = do
---  (dx,tclay) <- frame . parse <$> readFile "test.txt"
---  mapM_ print tclay
---
---  let ((ym,yM),(xm,xM)) = extent 0 tclay
---  printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
---
---  let g = fromCoords (dx,tclay)
---  putStrLn . showGnd $ g
---
---  --(dx,clay) <- frame . parse <$> readFile "input.txt"
---  --let ((ym,yM),(xm,xM)) = extent 0 clay
---  --printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
+main = do
+  [i,n] <- map read <$> getArgs
+  g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
+  let g' = head . drop n . iterate tick $ g
+  putStrLn . showGnd' 100 $ g'
+  let countStill = S.size $ gS g'
+      countFlowing = S.size $ gF g'
+  printf "Still: %d\nFlowing: %d (one is the spout)\nTotal: %d\n" countStill countFlowing (countStill+countFlowing-1)
