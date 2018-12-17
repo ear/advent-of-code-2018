@@ -49,14 +49,16 @@ type Water = Tree Coord
 
 --
 
--- | Add ~ Still tiles to the gS
+-- | Add ~ Still tiles to the gS and remove them from gF
 (=~) :: Gnd -> [Coord] -> Gnd
-g@Gnd{..} =~ cs = g { gS = L.foldl' (\s c -> S.insert c s) gS cs
-                    , gF = L.foldl' (\f c -> S.delete c f) gF cs }
+g@Gnd{..} =~ (filter (\(y,_) -> 0 < y && y < yM) -> cs)
+  = g { gS = L.foldl' (\s c -> S.insert c s) gS cs
+      , gF = L.foldl' (\f c -> S.delete c f) gF cs }
 
 -- | Add | Flowing tiles to the gF
 (=|) :: Gnd -> [Coord] -> Gnd
-g@Gnd{..} =| cs = g { gF = L.foldl' (\f c -> S.insert c f) gF cs }
+g@Gnd{..} =| (filter (\(y,_) -> 0 < y && y < yM) -> cs)
+  = g { gF = L.foldl' (\f c -> S.insert c f) gF cs }
 
 --
 
