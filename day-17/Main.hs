@@ -32,8 +32,8 @@ data Gnd = Gnd
   , xm :: Int
   , xM :: Int
   , gM :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
-  , gW :: Water
-  , gS :: S.Set Coord -- ^ contains only still (~) water tiles
+  , gW :: Water            -- ^ contains only flowing (|) water tiles
+  , gS :: S.Set Coord      -- ^ contains only still (~) water tiles
   } deriving Show
 
 data Tree a
@@ -60,19 +60,18 @@ flow g w = let (g',_,w') = flow' g w in (g',w')
 
 -- returns (ground, is still?, water)
 flow' :: Gnd -> Water -> (Gnd,Bool,Water)
+
+-- going down in a line
 flow' g@Gnd{..} (One (c,s) (Just w))
   = if still
     -- can't flow down
     then case flowing g' c of
-           Nothing -> (g' =+ [c],True,One (c,Still) (Just w))
-           Just _  -> (g', False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
+           Nothing -> (g' =+ [c], True , (One (c,Still) (Just w)))
+           Just _  -> (g'       , False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
     -- can flow down
     else (g',False,One (c,s) (Just w'))
   where
     (g',still,w') = flow' g w
-
--- water is flowing down
---flow g@Gnd{..} (One c (Just w)) = (g', One c (Just w')) where (g',w') = flow g w
 
 -- bottom end of a flow
 flow' g@Gnd{..} (One (c,s) Nothing) = (g', still, w')
@@ -87,12 +86,12 @@ flow' g@Gnd{..} (One (c,s) Nothing) = (g', still, w')
       Just LR ->
         (g, False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing)
       Nothing ->
-        (g =+ [c], True, One (c,Still) Nothing)
+        (g =+ [c], True, One (c,Still) Nothing) -- forgets the children, get added to gS
 
 -- water is flowing horizontally
---flow g@Gnd{..} (Many ml ws mr) = (g, w')
---  where
---    w' = error "flow Many: unimplemented"
+flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
+  where
+    (g', still, w') = error "unimplemented"
 
 isFree :: Gnd -> Coord -> Bool
 isFree Gnd{..} c = c `M.notMember` gM && c `S.notMember` gS
@@ -118,7 +117,7 @@ tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
 p n = do
-  g <- fromCoords . frame . parse <$> readFile "test3.txt"
+  g <- fromCoords . frame . parse <$> readFile "test4.txt"
   mapM_ (\g -> (putStrLn . showGnd $ g) >> (print $ gW g) >> (print $ gS g)) . take 1 . drop n . iterate tick $ g
 
 --
