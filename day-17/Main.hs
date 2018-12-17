@@ -247,10 +247,25 @@ frame yxs = (negate xm,translateX (negate xm) yxs)
 
 main :: IO ()
 main = do
-  [i,n] <- map read <$> getArgs
+  (i:n:_) <- map (read :: String -> Int) <$> getArgs
   g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
-  let g' = head . drop n . iterate tick $ g
-  putStrLn . showGnd' 100 $ g'
+  let (iters,g') = solve g
+  putStrLn . showGnd' n $ g'
   let countStill = S.size $ gS g'
       countFlowing = S.size $ gF g'
-  printf "Still: %d\nFlowing: %d (one is the spout)\nTotal: %d\n" countStill countFlowing (countStill+countFlowing-1)
+  printf "Iterations: %d\nStill: %d\nFlowing: %d (one is the spout)\nTotal: %d\n" iters countStill countFlowing (countStill+countFlowing-1)
+
+count :: Gnd -> (Int,Int)
+count Gnd{..} = (S.size $! gS, S.size $! gF)
+
+solve :: Gnd -> (Int,Gnd)
+solve = solve' 0
+
+solve' :: Int -> Gnd -> (Int,Gnd)
+solve' i g
+  | s == s'   = (i,g')
+  | otherwise = solve' (succ i) g'
+    where
+      g' = tick g
+      s = count g
+      s' = count g'
