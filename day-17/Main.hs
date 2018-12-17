@@ -12,6 +12,7 @@ import Control.Arrow hiding ( first, second )
 import qualified Data.Set          as S
 import qualified Data.List         as L
 import qualified Data.Map.Strict   as M
+import qualified Data.Sequence     as Q
 
 --
 
@@ -23,20 +24,30 @@ data Tile = Sand | Clay | Spout
 data Flow = D | L | R | LR
   deriving Show
 
-data Ground = Ground
-  { ym    :: Int
-  , yM    :: Int
-  , xm    :: Int
-  , xM    :: Int
-  , gMap  :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
-  , gFlow :: S.Set Coord      -- ^ frontier = coords that can Flow
+data Gnd = Gnd
+  { ym :: Int
+  , yM :: Int
+  , xm :: Int
+  , xM :: Int
+  , gM :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
+  , gW :: Water
   } deriving Show
 
-isFree :: Ground -> Coord -> Bool
-isFree Ground{..} c = c `M.notMember` gMap
+data Water
+  = One (Coord) (Maybe Water)
+  | Many (Maybe Water) (Q.Seq Coord) (Maybe Water)
+  deriving Show
 
-flowing :: Ground -> Coord -> Maybe Flow
-flowing g@Ground{..} (y,x)
+flow :: Gnd -> Water -> (Gnd,Water)
+flow Gnd{..} (One c Nothing) = undefined
+flow Gnd{..} (One c (Just w)) = undefined
+flow Gnd{..} (Many ml ws mr) = undefined
+
+isFree :: Gnd -> Coord -> Bool
+isFree Gnd{..} c = c `M.notMember` gM
+
+flowing :: Gnd -> Coord -> Maybe Flow
+flowing g@Gnd{..} (y,x)
   = case (isFree g (y,x-1),isFree g (y-1,x),isFree g (y,x+1)) of
       (_    ,True ,_    ) -> Just D
       (True ,False,False) -> Just L
@@ -44,33 +55,21 @@ flowing g@Ground{..} (y,x)
       (True ,False,True ) -> Just LR
       (_    ,_    ,_    ) -> Nothing
 
-flow :: Ground -> Ground
-flow ground@Ground{..} = ground { gMap = m', gFlow = f' }
-  where
-    m = gMap
-    f = gFlow
-    (m',f')
-      = case gFlow of
-          -- end: no more flow can be added to the map
-          [] -> (m,f)
-          -- water is flowing
-          _  -> undefined
-
 --
 
-fromCoords :: (Int,[[Coord]]) -> Ground
-fromCoords (dx,yxs) = Ground ym yM xm xM m (S.singleton (0,500+dx))
+fromCoords :: (Int,[[Coord]]) -> Gnd
+fromCoords (dx,yxs) = Gnd ym yM xm xM m (One (0,500+dx) Nothing)
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . addWater . map toClay . L.sort . concat $ yxs
     addWater = ( ((0,500 + dx),Spout) :)
     toClay (y,x) = ((y,x),Clay)
 
-showGround :: Ground -> String
-showGround Ground{..} = L.intercalate "\n"
+showGnd :: Gnd -> String
+showGnd Gnd{..} = L.intercalate "\n"
   [ [ showTile y x | x <- [0..xM+1] ] | y <- [0..yM] ]
   where
-    showTile y x | Just tile <- gMap M.!? (y,x)
+    showTile y x | Just tile <- gM M.!? (y,x)
       = case tile of
           Sand  -> '.'
           Clay  -> '#'
@@ -114,7 +113,7 @@ main = do
   printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
 
   let g = fromCoords (dx,tclay)
-  putStrLn . showGround $ g
+  putStrLn . showGnd $ g
 
   --(dx,clay) <- frame . parse <$> readFile "input.txt"
   --let ((ym,yM),(xm,xM)) = extent 0 clay
