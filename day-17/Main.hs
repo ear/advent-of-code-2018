@@ -2,6 +2,7 @@
 {-# language RecordWildCards #-}
 {-# language OverloadedLists #-}
 {-# language DeriveFoldable #-}
+{-# language BangPatterns #-}
 
 module Main where
 
@@ -26,22 +27,22 @@ data Tile = Sand | Clay
   deriving Show
 
 data Flow = D | L | R | LR
-  deriving Show
+  deriving (Show, Eq)
 
 data Gnd = Gnd
-  { ym :: Int
-  , yM :: Int
-  , xm :: Int
-  , xM :: Int
-  , gM :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
-  , gW :: Water            -- ^ contains only flowing (|) water tiles
-  , gS :: S.Set Coord      -- ^ contains only still (~) water tiles
-  , gF :: S.Set Coord      -- ^ contains only flowing (|) water tiles
+  { ym :: !Int
+  , yM :: !Int
+  , xm :: !Int
+  , xM :: !Int
+  , gM :: !(M.Map Coord Tile) -- ^ contains only non-emtpy (.) tiles
+  , gW :: !Water              -- ^ contains only flowing (|) water tiles
+  , gS :: !(S.Set Coord)      -- ^ contains only still (~) water tiles
+  , gF :: !(S.Set Coord)      -- ^ contains only flowing (|) water tiles
   } deriving Show
 
 data Tree a
-  = One (a) (Maybe (Tree a))
-  | Many (Maybe (Tree a)) (Q.Seq a) (Maybe (Tree a))
+  = One !(a) !(Maybe (Tree a))
+  | Many !(Maybe (Tree a)) !(Q.Seq a) !(Maybe (Tree a))
   deriving (Show, Foldable)
 
 data Speed = Spout | Flowing | Still
@@ -66,7 +67,7 @@ g@Gnd{..} =| (filter (\(y,_) -> 0 < y && y < yM) -> cs)
 
 flow :: Gnd -> Water -> (Gnd,Water)
 
-flow g w = let (g',_,w') = flow' g w in (g',w')
+flow g w = let !(!g',_,!w') = flow' g w in (g',w')
 
 -- returns (ground, is still?, water)
 flow' :: Gnd -> Water -> (Gnd,Bool,Water)
@@ -88,7 +89,9 @@ flow' g@Gnd{..} (One c Nothing) = (g', still, w')
   where
     (g', still, w') = case flowing g c of
       Just D ->
-        (g =| [d c], False, One c $ Just $ One (d c) Nothing)
+        if isSpout g (d c) L || isSpout g (d c) R
+        then (g         , False, One c Nothing)
+        else (g =| [d c], False, One c $ Just $ One (d c) Nothing)
       Just L ->
         (g =| [l c], False, Many Nothing (Q.fromList [(l c),(c)]) Nothing)
       Just R ->
@@ -101,7 +104,7 @@ flow' g@Gnd{..} (One c Nothing) = (g', still, w')
 -- water is flowing horizontally
 flow' g@Gnd{..} (Many mlw ws mrw) = (g''', still', w''')
   where
-    (g', stillL, (Many mlw' ws' mrw')) =
+    !(!g', !stillL, !(Many !mlw' !ws' !mrw')) =
       case mlw of
         Just lw ->
           case flow' g lw of
@@ -112,21 +115,42 @@ flow' g@Gnd{..} (Many mlw ws mrw) = (g''', still', w''')
             Just (D,c) -> (g =| [d c], False, (Many (Just (One (d c) Nothing)) ws            mrw))
             Just (L,c) -> (g =| [l c], False, (Many Nothing                    (l c Q.<| ws) mrw))
             Nothing    -> (g         , True , (Many mlw                        ws            mrw))
-    (g'', stillR, w'') =
+    !(g'', !stillR, !w'') =
       case mrw' of
         Just rw ->
           case flow' g' rw of
             (gr,False,rw') -> (gr              , False, (Many mlw' ws' (Just rw')))
             (gr,True ,rw') -> (gr =~ toList rw', False, (Many mlw' ws' Nothing   ))
         Nothing ->
-          case popRight g ws of
+          case popRight g' ws of
             Just (D,c) -> (g' =| [d c], False, (Many mlw' ws'            (Just (One (d c) Nothing))))
             Just (R,c) -> (g' =| [r c], False, (Many mlw' (ws' Q.|> r c) mrw'                      ))
             Nothing    -> (g'         , True , (Many mlw' ws'            mrw'                      ))
-    (g''', still', w''') =
+    !(g''', !still', !w''') =
       case stillL && stillR of
-        True  -> (g'' =~ toList w'', True , (Many Nothing Q.empty Nothing))
+        True  ->
+          case (isSpout g'' (l $ leftmost w'') L, isSpout g'' (r $ rightmost w'') R) of
+            (False,False) -> (g'' =~ toList w'', True , (Many Nothing Q.empty Nothing))
+            (_    ,_    ) -> (g''              , False, w'')
         False -> (g''              , False, w''                           )
+
+leftmost :: Water -> Coord
+leftmost (Many _ (l Q.:<| _) _) = l
+
+rightmost :: Water -> Coord
+rightmost (Many _ (_ Q.:|> r) _) = r
+
+-- Is water at the given coordinate free in the given direction?
+isSpout :: Gnd -> Coord -> Flow -> Bool
+isSpout Gnd{..} (y,x) dir = go (y,x) False
+  where
+    move | dir == L = l
+         | dir == R = r
+    go c seenFlowingWater
+      | c `M.member` gM = False
+      | c `S.member` gS = False
+      | c `S.member` gF = go (move c) True
+      | otherwise       = seenFlowingWater
 
 popLeft :: Gnd -> Q.Seq Coord -> Maybe (Flow,Coord)
 popLeft _ Q.Empty     = Nothing
@@ -147,16 +171,19 @@ popRight g (_ Q.:|> r)
       _       -> Nothing
 
 isFree :: Gnd -> Coord -> Bool
-isFree Gnd{..} c = c `M.notMember` gM && c `S.notMember` gS
+isFree Gnd{..} c = c `M.notMember` gM && c `S.notMember` gS && c `S.notMember` gF
 
 flowing :: Gnd -> Coord -> Maybe Flow
 flowing g@Gnd{..} (y,x)
-  = case (isFree g (y,x-1),isFree g (y+1,x),isFree g (y,x+1)) of
-      (_    ,True ,_    ) -> Just D
-      (True ,False,False) -> Just L
-      (False,False,True ) -> Just R
-      (True ,False,True ) -> Just LR
-      (_    ,_    ,_    ) -> Nothing
+  = case d (y,x) `S.member` gF of
+      True -> Just D
+      False ->
+        case (isFree g (y,x-1),isFree g (y+1,x),isFree g (y,x+1)) of
+          (_    ,True ,_    ) -> Just D
+          (True ,False,False) -> Just L
+          (False,False,True ) -> Just R
+          (True ,False,True ) -> Just LR
+          (_    ,_    ,_    ) -> Nothing
 
 --
 
@@ -206,7 +233,7 @@ showGnd Gnd{..} = L.intercalate "\n"
 -- show only the last n lines
 showGnd' :: Int -> Gnd -> String
 showGnd' n Gnd{..} = L.intercalate "\n"
-  [ [ showTile y x | x <- [0..xM+1] ] | y <- [max 1 (yM-(n+1))..yM] ]
+  [ [ showTile y x | x <- [0..xM+1] ] | y <- [max 1 (yM-(n+1))..(yM-1)] ]
   where
     showTile y x | (y,x) `S.member` gS = '~'
     showTile y x | (y,x) `S.member` gF = '|'
@@ -247,9 +274,9 @@ frame yxs = (negate xm,translateX (negate xm) yxs)
 
 main :: IO ()
 main = do
-  (i:n:_) <- map (read :: String -> Int) <$> getArgs
+  (i:maxIters:n:_) <- map (read :: String -> Int) <$> getArgs
   g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
-  let (iters,g') = solve g
+  let (iters,g') = solve maxIters g
   putStrLn . showGnd' n $ g'
   let countStill = S.size $ gS g'
       countFlowing = S.size $ gF g'
@@ -258,13 +285,14 @@ main = do
 count :: Gnd -> (Int,Int)
 count Gnd{..} = (S.size $! gS, S.size $! gF)
 
-solve :: Gnd -> (Int,Gnd)
-solve = solve' 0
+solve :: Int -> Gnd -> (Int,Gnd)
+solve maxIters = solve' maxIters 0
 
-solve' :: Int -> Gnd -> (Int,Gnd)
-solve' i g
+solve' :: Int -> Int -> Gnd -> (Int,Gnd)
+solve' maxIters i g
+  | i == maxIters = (i,g')
   | s == s'   = (i,g')
-  | otherwise = solve' (succ i) g'
+  | otherwise = solve' maxIters (succ i) g'
     where
       g' = tick g
       s = count g
