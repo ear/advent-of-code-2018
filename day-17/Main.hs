@@ -1,5 +1,6 @@
 {-# language ViewPatterns #-}
 {-# language RecordWildCards #-}
+{-# language OverloadedLists #-}
 
 module Main where
 
@@ -8,6 +9,7 @@ import Text.Printf
 import Data.Bifunctor
 import Control.Arrow hiding ( first, second )
 
+import qualified Data.Set          as S
 import qualified Data.List         as L
 import qualified Data.Map.Strict   as M
 
@@ -18,16 +20,46 @@ type Coord = (Int,Int)
 data Tile = Sand | Clay | Spout
   deriving Show
 
+data Flow = D | L | R | LR
+  deriving Show
+
 data Ground = Ground
-  { ym  :: Int
-  , yM  :: Int
-  , xm  :: Int
-  , xM  :: Int
-  , gMap :: M.Map Coord Tile
+  { ym    :: Int
+  , yM    :: Int
+  , xm    :: Int
+  , xM    :: Int
+  , gMap  :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
+  , gFlow :: S.Set Coord      -- ^ frontier = coords that can Flow
   } deriving Show
 
+isFree :: Ground -> Coord -> Bool
+isFree Ground{..} c = c `M.notMember` gMap
+
+flowing :: Ground -> Coord -> Maybe Flow
+flowing g@Ground{..} (y,x)
+  = case (isFree g (y,x-1),isFree g (y-1,x),isFree g (y,x+1)) of
+      (_    ,True ,_    ) -> Just D
+      (True ,False,False) -> Just L
+      (False,False,True ) -> Just R
+      (True ,False,True ) -> Just LR
+      (_    ,_    ,_    ) -> Nothing
+
+flow :: Ground -> Ground
+flow ground@Ground{..} = ground { gMap = m', gFlow = f' }
+  where
+    m = gMap
+    f = gFlow
+    (m',f')
+      = case gFlow of
+          -- begin: only the spout is available
+          [] -> (m,f) -- TODO
+          -- water is flowing
+          _  -> (m,f) -- TODO
+
+--
+
 fromCoords :: (Int,[[Coord]]) -> Ground
-fromCoords (dx,yxs) = Ground ym yM xm xM m
+fromCoords (dx,yxs) = Ground ym yM xm xM m (S.empty)
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . addWater . map toClay . L.sort . concat $ yxs
@@ -53,6 +85,7 @@ parse = map parseLine . lines
     parseLine = generate . words . map clean
     clean c | c `elem` "0123456789xy" = c
     clean _ = ' '
+    generate :: [String] -> [Coord]
     generate ["x",(read -> x),"y",(read -> ym),(read -> yM)]
       = [ (y,x) | y <- [ym..yM] ]
     generate ["y",(read -> y),"x",(read -> xm),(read -> xM)]
@@ -62,7 +95,7 @@ extent :: Int -> [[Coord]] -> (Coord,Coord)
 extent n = padX n . bimap minMax minMax . unzip . concat
   where
     minMax = minimum &&& maximum
-    padX n = (const 0 *** id) *** (subtract n *** (n+))
+    padX n = (const 0 *** succ) *** (subtract n *** (n+))
 
 frame :: [[Coord]] -> (Int,[[Coord]])
 frame yxs = (negate xm,translateX (negate xm) yxs)
