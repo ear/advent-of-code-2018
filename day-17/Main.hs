@@ -51,15 +51,15 @@ flow ground@Ground{..} = ground { gMap = m', gFlow = f' }
     f = gFlow
     (m',f')
       = case gFlow of
-          -- begin: only the spout is available
-          [] -> (m,f) -- TODO
+          -- end: no more flow can be added to the map
+          [] -> (m,f)
           -- water is flowing
-          _  -> (m,f) -- TODO
+          _  -> undefined
 
 --
 
 fromCoords :: (Int,[[Coord]]) -> Ground
-fromCoords (dx,yxs) = Ground ym yM xm xM m (S.empty)
+fromCoords (dx,yxs) = Ground ym yM xm xM m (S.singleton (0,500+dx))
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . addWater . map toClay . L.sort . concat $ yxs
