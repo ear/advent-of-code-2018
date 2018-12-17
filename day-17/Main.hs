@@ -124,52 +124,6 @@ flow' g@Gnd{..} (Many mlw ws mrw) = (g''', still', w''')
         True  -> (g'' =~ toList w'', True , (Many Nothing Q.empty Nothing))
         False -> (g''              , False, w''                           )
 
---    -- navigate left
---    (g', still', w') = case (mlw,popLeft g ws) of
---      (Nothing,Nothing   ) -> error "there might still be something on the right"
---      (Just lw,_         ) ->
---        case flow' g lw of
---          (_,False,lw') -> (g, False, Many (Just lw') ws mrw)
---          (g',True,lw') -> (g =~ toList lw', False, Many Nothing ws mrw)
---      (Nothing,Just (s,c)) ->
---        case s of
---          L -> (g =| [l c], False, (Many mlw (l c Q.<| ws) mrw))
---          D -> let lw = (One (d c) Nothing)
---               in (g =| [d c], False, (Many (Just lw) ws mrw))
---          _ -> error "should not happen thanks to popLeft"
---    -- navigate right
---    (Many mlw' ws' mrw') = w'
---    (g'', still'', w'') = case (mrw',popRight g' ws') of
---      (Just rw,_         ) ->
---        case flow' g rw of
---          (_,False,rw') -> (g, False, (Many mlw' ws' (Just rw')))
---          (g',True,rw') -> (g =~ toList rw', False, (Many mlw' ws' Nothing))
---      (Nothing,Just (s,c)) ->
---        case s of
---          R -> (g =| [r c], False, (Many mlw' (ws Q.|> r c) mrw'))
---          D -> let rw = (One (d c) Nothing)
---               in (g =| [d c], False, (Many mlw' ws' (Just rw)))
---          _ -> error "should not happen thanks to popRight"
-
---flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
---  where
---    (g', still, w') = case (popLeft g ws, popRight g ws) of
---      (Nothing,Nothing) -> error "empty Many" -- XXX: this means the level is flooded, gone to still ~
---      (Just (s,c),Nothing) -> -- error $ "only left: " ++ show c
---        case s of
---          L -> (g =| [l c], False, (Many Nothing (l c Q.<| ws) Nothing))
---          D -> -- error "unimplemented fall from left"
---               let lw = (One (d c) Nothing)
---               in (g =| [d c], False, (Many (Just lw) ws Nothing))
---          _ -> error "should not happend because of popLeft"
---      (Just c1,Just c2) -> error $ "both sides: " ++ show c1 ++ " " ++ show c2
---      (Nothing,Just (s,c)) -> -- error $ "only right: " ++ show r
---        case s of
---          R -> (g =| [r c], False, (Many Nothing (ws Q.|> r c) Nothing))
---          D -> error "unimplemented fall from right"
---          _ -> error "should not happen because of popRight"
-
-
 popLeft :: Gnd -> Q.Seq Coord -> Maybe (Flow,Coord)
 popLeft _ Q.Empty     = Nothing
 popLeft g (l Q.:<| _)
@@ -211,6 +165,8 @@ r (y,x) = (y,x+1)
 tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
+--
+
 p :: Int -> Int -> IO ()
 p i n = do
   g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
@@ -218,11 +174,12 @@ p i n = do
     where
       dump g = do
         putStrLn . showGnd $ g
-        printf "Water:   %s\n" $ show $ gW g
-        printf "Still:   %s\n" $ show $ gS g
-        printf "Flowing: %s\n" $ show $ gF g
+        printf "Water:   (%d) %s\n" (length $ gW g) (show $ gW g)
+        printf "Still:   (%d) %s\n" (length $ gS g) (show $ gS g)
+        printf "Flowing: (%d) %s\n" (length $ gF g) (show $ gF g)
 
 --
+
 fromCoords :: (Int,[[Coord]]) -> Gnd
 fromCoords (dx,yxs) = Gnd ym yM xm xM m (One (0,500+dx) Nothing) S.empty (S.singleton (0,500+dx))
   where
