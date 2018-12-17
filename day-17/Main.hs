@@ -34,6 +34,7 @@ data Gnd = Gnd
   , gM :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
   , gW :: Water            -- ^ contains only flowing (|) water tiles
   , gS :: S.Set Coord      -- ^ contains only still (~) water tiles
+  , gF :: S.Set Coord      -- ^ contains only flowing (|) water tiles
   } deriving Show
 
 data Tree a
@@ -49,8 +50,13 @@ type Water = Tree (Coord,Speed)
 --
 
 -- | Add ~ Still tiles to the gS
-(=+) :: Gnd -> [Coord] -> Gnd
-g@Gnd{..} =+ cs = g { gS = L.foldl' (\f c -> S.insert c f) gS cs }
+(=~) :: Gnd -> [Coord] -> Gnd
+g@Gnd{..} =~ cs = g { gS = L.foldl' (\s c -> S.insert c s) gS cs
+                    , gF = L.foldl' (\f c -> S.delete c f) gF cs }
+
+-- | Add | Flowing tiles to the gF
+(=|) :: Gnd -> [Coord] -> Gnd
+g@Gnd{..} =| cs = g { gF = L.foldl' (\f c -> S.insert c f) gF cs }
 
 --
 
@@ -66,27 +72,27 @@ flow' g@Gnd{..} (One (c,s) (Just w))
   = if still
     -- can't flow down
     then case flowing g' c of
-           Nothing -> (g' =+ [c], True , (One (c,Still) (Just w)))
-           Just _  -> (g'       , False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
+           Nothing -> (g' =~ [c], True , (One (c,Still) (Just w)))
+           Just _  -> (g', False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
     -- can flow down
-    else (g',False,One (c,s) (Just w'))
+    else (g', False, (One (c,s) (Just w')))
   where
-    (g',still,w') = flow' g w
+    (g', still, w') = flow' g w
 
 -- bottom end of a flow
 flow' g@Gnd{..} (One (c,s) Nothing) = (g', still, w')
   where
     (g', still, w') = case flowing g c of
       Just D ->
-        (g, False, One (c,s) $ Just $ One (d c,Flowing) Nothing)
+        (g =| [d c], False, One (c,s) $ Just $ One (d c,Flowing) Nothing)
       Just L ->
-        (g, False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing)]) Nothing)
+        (g =| [l c], False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing)]) Nothing)
       Just R ->
-        (g, False, Many Nothing (Q.fromList [(c,Flowing),(r c,Flowing)]) Nothing)
+        (g =| [r c], False, Many Nothing (Q.fromList [(c,Flowing),(r c,Flowing)]) Nothing)
       Just LR ->
-        (g, False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing)
+        (g =| [l c, r c], False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing)
       Nothing ->
-        (g =+ [c], True, One (c,Still) Nothing) -- forgets the children, get added to gS
+        (g =~ [c], True, One (c,Still) Nothing) -- forgets the children, get added to gS
 
 -- water is flowing horizontally
 flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
@@ -117,12 +123,18 @@ tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
 p n = do
-  g <- fromCoords . frame . parse <$> readFile "test4.txt"
-  mapM_ (\g -> (putStrLn . showGnd $ g) >> (print $ gW g) >> (print $ gS g)) . take 1 . drop n . iterate tick $ g
+  g <- fromCoords . frame . parse <$> readFile "test.txt"
+  mapM_ dump . take 1 . drop n . iterate tick $ g
+    where
+      dump g = do
+        putStrLn . showGnd $ g
+        printf "Water:   %s\n" $ show $ gW g
+        printf "Still:   %s\n" $ show $ gS g
+        printf "Flowing: %s\n" $ show $ gF g
 
 --
 fromCoords :: (Int,[[Coord]]) -> Gnd
-fromCoords (dx,yxs) = Gnd ym yM xm xM m (One ((0,500+dx),Spout) Nothing) S.empty
+fromCoords (dx,yxs) = Gnd ym yM xm xM m (One ((0,500+dx),Spout) Nothing) S.empty (S.singleton (0,500+dx))
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . map toClay . L.sort . concat $ yxs
