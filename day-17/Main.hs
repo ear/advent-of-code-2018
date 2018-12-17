@@ -181,9 +181,8 @@ showGnd :: Gnd -> String
 showGnd Gnd{..} = L.intercalate "\n"
   [ [ showTile y x | x <- [0..xM+1] ] | y <- [0..yM] ]
   where
-    wts = waterTiles gW
     showTile y x | (y,x) `S.member` gS = '~'
-    showTile y x | (y,x) `S.member` wts = '|'
+    showTile y x | (y,x) `S.member` gF = '|'
     showTile y x | Just tile <- gM M.!? (y,x)
       = case tile of
           Sand  -> '.'
@@ -192,10 +191,6 @@ showGnd Gnd{..} = L.intercalate "\n"
 
 --
 
-waterTiles :: Water -> S.Set Coord
-waterTiles = S.fromList . toList
-
---
 
 parse :: String -> [[Coord]]
 parse = map parseLine . lines
