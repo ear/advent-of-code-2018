@@ -95,27 +95,61 @@ flow' g@Gnd{..} (One c Nothing) = (g', still, w')
         (g =~ [c], True, One (c) Nothing) -- forgets the children, get added to gS
 
 -- water is flowing horizontally
--- flow' _ (Many _ [(c,s)] _) = error $ show (c,s) ++ " is alone in a Many?"
-
--- XXX: Many Just must come first before Nothing
--- should NOT do BOTH popLeft AND flow' w in the Just w
--- water doesn't run over if it is falling and it is not still
-
-flow' g@Gnd{..} (Many mlw ws mrw) = (g'', still'', w'')
+flow' g@Gnd{..} (Many mlw ws mrw) = (g''', still', w''')
   where
-    (g', still', w') = case (mlw,popLeft g ws) of
-      (Nothing,Nothing   ) -> error "there might still be something on the right"
-      (Just lw,_         ) ->
-        case flow' g lw of
-          (_,False,lw') -> (g, False, (Many (Just lw') ws mrw))
-          (g',True,lw') -> (g =~ toList lw', False, (Many Nothing ws mrw))
-      (Nothing,Just (s,c)) ->
-        case s of
-          L -> (g =| [l c], False, (Many Nothing (l c Q.<| ws) Nothing))
-          D -> let lw = (One (d c) Nothing)
-               in (g =| [d c], False, (Many (Just lw) ws Nothing))
-          _ -> error "should not happen thanks to popLeft"
-    (g'', still'', w'') = (g', still', w')
+    (g', stillL, (Many mlw' ws' mrw')) =
+      case mlw of
+        Just lw ->
+          case flow' g lw of
+            (gl,False,lw') -> (gl              , False, (Many (Just lw') ws mrw))
+            (gl,True ,lw') -> (gl =~ toList lw', False, (Many Nothing    ws mrw))
+        Nothing ->
+          case popLeft g ws of
+            Just (D,c) -> (g =| [d c], False, (Many (Just (One (d c) Nothing)) ws            mrw))
+            Just (L,c) -> (g =| [l c], False, (Many Nothing                    (l c Q.<| ws) mrw))
+            Nothing    -> (g         , True , (Many mlw                        ws            mrw))
+    (g'', stillR, w'') =
+      case mrw' of
+        Just rw ->
+          case flow' g' rw of
+            (gr,False,rw') -> (gr              , False, (Many mlw' ws' (Just rw')))
+            (gr,True ,rw') -> (gr =~ toList rw', False, (Many mlw' ws' Nothing   ))
+        Nothing ->
+          case popRight g ws of
+            Just (D,c) -> (g' =| [d c], False, (Many mlw' ws'            (Just (One (d c) Nothing))))
+            Just (R,c) -> (g' =| [r c], False, (Many mlw' (ws' Q.|> r c) mrw'                      ))
+            Nothing    -> (g'         , True , (Many mlw' ws'            mrw'                      ))
+    (g''', still', w''') =
+      case stillL && stillR of
+        True  -> (g'' =~ toList w'', True , (Many Nothing Q.empty Nothing))
+        False -> (g''              , False, w''                           )
+
+--    -- navigate left
+--    (g', still', w') = case (mlw,popLeft g ws) of
+--      (Nothing,Nothing   ) -> error "there might still be something on the right"
+--      (Just lw,_         ) ->
+--        case flow' g lw of
+--          (_,False,lw') -> (g, False, Many (Just lw') ws mrw)
+--          (g',True,lw') -> (g =~ toList lw', False, Many Nothing ws mrw)
+--      (Nothing,Just (s,c)) ->
+--        case s of
+--          L -> (g =| [l c], False, (Many mlw (l c Q.<| ws) mrw))
+--          D -> let lw = (One (d c) Nothing)
+--               in (g =| [d c], False, (Many (Just lw) ws mrw))
+--          _ -> error "should not happen thanks to popLeft"
+--    -- navigate right
+--    (Many mlw' ws' mrw') = w'
+--    (g'', still'', w'') = case (mrw',popRight g' ws') of
+--      (Just rw,_         ) ->
+--        case flow' g rw of
+--          (_,False,rw') -> (g, False, (Many mlw' ws' (Just rw')))
+--          (g',True,rw') -> (g =~ toList rw', False, (Many mlw' ws' Nothing))
+--      (Nothing,Just (s,c)) ->
+--        case s of
+--          R -> (g =| [r c], False, (Many mlw' (ws Q.|> r c) mrw'))
+--          D -> let rw = (One (d c) Nothing)
+--               in (g =| [d c], False, (Many mlw' ws' (Just rw)))
+--          _ -> error "should not happen thanks to popRight"
 
 --flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
 --  where
