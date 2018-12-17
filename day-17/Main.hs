@@ -95,9 +95,46 @@ flow' g@Gnd{..} (One c Nothing) = (g', still, w')
         (g =~ [c], True, One (c) Nothing) -- forgets the children, get added to gS
 
 -- water is flowing horizontally
+-- flow' _ (Many _ [(c,s)] _) = error $ show (c,s) ++ " is alone in a Many?"
+
+-- XXX: Many Just must come first before Nothing
+-- should NOT do BOTH popLeft AND flow' w in the Just w
+-- water doesn't run over if it is falling and it is not still
+
 flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
   where
-    (g', still, w') = error "unimplemented"
+    (g', still, w') = case (popLeft g ws, popRight g ws) of
+      (Nothing,Nothing) -> error "empty Many" -- XXX: this means the level is flooded, gone to still ~
+      (Just (s,c),Nothing) -> -- error $ "only left: " ++ show c
+        case s of
+          L -> (g =| [l c], False, (Many Nothing (l c Q.<| ws) Nothing))
+          D -> error "unimplemented fall from left"
+          _ -> error "should not happend because of popLeft"
+      (Just c1,Just c2) -> error $ "both sides: " ++ show c1 ++ " " ++ show c2
+      (Nothing,Just (s,c)) -> -- error $ "only right: " ++ show r
+        case s of
+          R -> (g =| [r c], False, (Many Nothing (ws Q.|> r c) Nothing))
+          D -> error "unimplemented fall from right"
+          _ -> error "should not happen because of popRight"
+
+
+popLeft :: Gnd -> Q.Seq Coord -> Maybe (Flow,Coord)
+popLeft _ Q.Empty     = Nothing
+popLeft g (l Q.:<| _)
+  = case flowing g l of
+      Just D  -> Just (D,l)
+      Just L  -> Just (L,l)
+      Just LR -> Just (L,l)
+      _       -> Nothing
+
+popRight :: Gnd -> Q.Seq Coord -> Maybe (Flow,Coord)
+popRight _ Q.Empty     = Nothing
+popRight g (_ Q.:|> r)
+  = case flowing g r of
+      Just D  -> Just (D,r)
+      Just R  -> Just (R,r)
+      Just LR -> Just (R,r)
+      _       -> Nothing
 
 isFree :: Gnd -> Coord -> Bool
 isFree Gnd{..} c = c `M.notMember` gM && c `S.notMember` gS
