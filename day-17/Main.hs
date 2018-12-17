@@ -211,8 +211,9 @@ r (y,x) = (y,x+1)
 tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
+p :: Int -> Int -> IO ()
 p i n = do
-  g <- fromCoords . frame . parse <$> readFile (printf "test%d.txt" i)
+  g <- fromCoords . frame . parse <$> readFile (if i == 0 then "input.txt" else printf "test%d.txt" i)
   mapM_ dump . take 1 . drop n . iterate tick $ g
     where
       dump g = do
@@ -271,16 +272,19 @@ frame yxs = (negate xm,translateX (negate xm) yxs)
 
 --
 
-main = do
-  (dx,tclay) <- frame . parse <$> readFile "test.txt"
-  mapM_ print tclay
+main :: IO ()
+main = p 0 20000
 
-  let ((ym,yM),(xm,xM)) = extent 0 tclay
-  printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
-
-  let g = fromCoords (dx,tclay)
-  putStrLn . showGnd $ g
-
-  --(dx,clay) <- frame . parse <$> readFile "input.txt"
-  --let ((ym,yM),(xm,xM)) = extent 0 clay
-  --printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
+--main = do
+--  (dx,tclay) <- frame . parse <$> readFile "test.txt"
+--  mapM_ print tclay
+--
+--  let ((ym,yM),(xm,xM)) = extent 0 tclay
+--  printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
+--
+--  let g = fromCoords (dx,tclay)
+--  putStrLn . showGnd $ g
+--
+--  --(dx,clay) <- frame . parse <$> readFile "input.txt"
+--  --let ((ym,yM),(xm,xM)) = extent 0 clay
+--  --printf "clay veins from (%d,%d) to (%d,%d)\n" ym xm yM xM
