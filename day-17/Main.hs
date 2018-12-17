@@ -101,21 +101,39 @@ flow' g@Gnd{..} (One c Nothing) = (g', still, w')
 -- should NOT do BOTH popLeft AND flow' w in the Just w
 -- water doesn't run over if it is falling and it is not still
 
-flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
+flow' g@Gnd{..} (Many mlw ws mrw) = (g'', still'', w'')
   where
-    (g', still, w') = case (popLeft g ws, popRight g ws) of
-      (Nothing,Nothing) -> error "empty Many" -- XXX: this means the level is flooded, gone to still ~
-      (Just (s,c),Nothing) -> -- error $ "only left: " ++ show c
+    (g', still', w') = case (mlw,popLeft g ws) of
+      (Nothing,Nothing   ) -> error "there might still be something on the right"
+      (Just lw,_         ) ->
+        case flow' g lw of
+          (_,False,lw') -> (g, False, (Many (Just lw') ws mrw))
+          (g',True,lw') -> (g =~ toList lw', False, (Many Nothing ws mrw))
+      (Nothing,Just (s,c)) ->
         case s of
           L -> (g =| [l c], False, (Many Nothing (l c Q.<| ws) Nothing))
-          D -> error "unimplemented fall from left"
-          _ -> error "should not happend because of popLeft"
-      (Just c1,Just c2) -> error $ "both sides: " ++ show c1 ++ " " ++ show c2
-      (Nothing,Just (s,c)) -> -- error $ "only right: " ++ show r
-        case s of
-          R -> (g =| [r c], False, (Many Nothing (ws Q.|> r c) Nothing))
-          D -> error "unimplemented fall from right"
-          _ -> error "should not happen because of popRight"
+          D -> let lw = (One (d c) Nothing)
+               in (g =| [d c], False, (Many (Just lw) ws Nothing))
+          _ -> error "should not happen thanks to popLeft"
+    (g'', still'', w'') = (g', still', w')
+
+--flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
+--  where
+--    (g', still, w') = case (popLeft g ws, popRight g ws) of
+--      (Nothing,Nothing) -> error "empty Many" -- XXX: this means the level is flooded, gone to still ~
+--      (Just (s,c),Nothing) -> -- error $ "only left: " ++ show c
+--        case s of
+--          L -> (g =| [l c], False, (Many Nothing (l c Q.<| ws) Nothing))
+--          D -> -- error "unimplemented fall from left"
+--               let lw = (One (d c) Nothing)
+--               in (g =| [d c], False, (Many (Just lw) ws Nothing))
+--          _ -> error "should not happend because of popLeft"
+--      (Just c1,Just c2) -> error $ "both sides: " ++ show c1 ++ " " ++ show c2
+--      (Nothing,Just (s,c)) -> -- error $ "only right: " ++ show r
+--        case s of
+--          R -> (g =| [r c], False, (Many Nothing (ws Q.|> r c) Nothing))
+--          D -> error "unimplemented fall from right"
+--          _ -> error "should not happen because of popRight"
 
 
 popLeft :: Gnd -> Q.Seq Coord -> Maybe (Flow,Coord)
