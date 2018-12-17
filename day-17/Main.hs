@@ -122,8 +122,8 @@ r (y,x) = (y,x+1)
 tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
-p n = do
-  g <- fromCoords . frame . parse <$> readFile "test.txt"
+p i n = do
+  g <- fromCoords . frame . parse <$> readFile (printf "test%d.txt" i)
   mapM_ dump . take 1 . drop n . iterate tick $ g
     where
       dump g = do
