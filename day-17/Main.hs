@@ -33,6 +33,7 @@ data Gnd = Gnd
   , xM :: Int
   , gM :: M.Map Coord Tile -- ^ contains only non-emtpy (.) tiles
   , gW :: Water
+  , gS :: S.Set Coord -- ^ contains only still (~) water tiles
   } deriving Show
 
 data Tree a
@@ -45,32 +46,56 @@ data Speed = Spout | Flowing | Still
 
 type Water = Tree (Coord,Speed)
 
+--
+
+-- | Add ~ Still tiles to the gS
+(=+) :: Gnd -> [Coord] -> Gnd
+g@Gnd{..} =+ cs = g { gS = L.foldl' (\f c -> S.insert c f) gS cs }
+
+--
+
 flow :: Gnd -> Water -> (Gnd,Water)
 
+flow g w = let (g',_,w') = flow' g w in (g',w')
+
+-- returns (ground, is still?, water)
+flow' :: Gnd -> Water -> (Gnd,Bool,Water)
+flow' g@Gnd{..} (One (c,s) (Just w))
+  = if still
+    -- can't flow down
+    then case flowing g' c of
+           Nothing -> (g' =+ [c],True,One (c,Still) (Just w))
+           Just _  -> (g', False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
+    -- can flow down
+    else (g',False,One (c,s) (Just w'))
+  where
+    (g',still,w') = flow' g w
+
 -- water is flowing down
-flow g@Gnd{..} (One c (Just w)) = (g', One c (Just w')) where (g',w') = flow g w
+--flow g@Gnd{..} (One c (Just w)) = (g', One c (Just w')) where (g',w') = flow g w
 
 -- bottom end of a flow
-flow g@Gnd{..} (One (c,s) Nothing) = (g, w')
+flow' g@Gnd{..} (One (c,s) Nothing) = (g', still, w')
   where
-    w' = case flowing g c of
+    (g', still, w') = case flowing g c of
       Just D ->
-        One (c,s) $ Just $ One (d c,Flowing) Nothing
+        (g, False, One (c,s) $ Just $ One (d c,Flowing) Nothing)
       Just L ->
-        Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing)]) Nothing
+        (g, False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing)]) Nothing)
       Just R ->
-        Many Nothing (Q.fromList [(c,Flowing),(r c,Flowing)]) Nothing
+        (g, False, Many Nothing (Q.fromList [(c,Flowing),(r c,Flowing)]) Nothing)
       Just LR ->
-        Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing
-      Nothing -> error "flow One Nothing: water doesn't know where to go"
+        (g, False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing)
+      Nothing ->
+        (g =+ [c], True, One (c,Still) Nothing)
 
 -- water is flowing horizontally
-flow g@Gnd{..} (Many ml ws mr) = (g, w')
-  where
-    w' = error "flow Many: unimplemented"
+--flow g@Gnd{..} (Many ml ws mr) = (g, w')
+--  where
+--    w' = error "flow Many: unimplemented"
 
 isFree :: Gnd -> Coord -> Bool
-isFree Gnd{..} c = c `M.notMember` gM
+isFree Gnd{..} c = c `M.notMember` gM && c `S.notMember` gS
 
 flowing :: Gnd -> Coord -> Maybe Flow
 flowing g@Gnd{..} (y,x)
@@ -93,12 +118,12 @@ tick :: Gnd -> Gnd
 tick g@Gnd{..} = g' { gW = w' } where (g',w') = flow g gW
 
 p n = do
-  g <- fromCoords . frame . parse <$> readFile "test2.txt"
-  mapM_ (\g -> (putStrLn . showGnd $ g) >> (print $ gW g)) . take 1 . drop n . iterate tick $ g
+  g <- fromCoords . frame . parse <$> readFile "test3.txt"
+  mapM_ (\g -> (putStrLn . showGnd $ g) >> (print $ gW g) >> (print $ gS g)) . take 1 . drop n . iterate tick $ g
 
 --
 fromCoords :: (Int,[[Coord]]) -> Gnd
-fromCoords (dx,yxs) = Gnd ym yM xm xM m (One ((0,500+dx),Spout) Nothing)
+fromCoords (dx,yxs) = Gnd ym yM xm xM m (One ((0,500+dx),Spout) Nothing) S.empty
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . map toClay . L.sort . concat $ yxs
@@ -109,6 +134,7 @@ showGnd Gnd{..} = L.intercalate "\n"
   [ [ showTile y x | x <- [0..xM+1] ] | y <- [0..yM] ]
   where
     wts = waterTiles gW
+    showTile y x | (y,x) `S.member` gS = '~'
     showTile y x | Just speed <- wts M.!? (y,x)
       = case speed of
           Spout -> '+'
