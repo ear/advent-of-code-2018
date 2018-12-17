@@ -45,7 +45,7 @@ data Tree a
 data Speed = Spout | Flowing | Still
   deriving Show
 
-type Water = Tree (Coord,Speed)
+type Water = Tree Coord
 
 --
 
@@ -68,31 +68,31 @@ flow g w = let (g',_,w') = flow' g w in (g',w')
 flow' :: Gnd -> Water -> (Gnd,Bool,Water)
 
 -- going down in a line
-flow' g@Gnd{..} (One (c,s) (Just w))
+flow' g@Gnd{..} (One c (Just w))
   = if still
     -- can't flow down
     then case flowing g' c of
-           Nothing -> (g' =~ [c], True , (One (c,Still) (Just w)))
-           Just _  -> (g', False, (Many Nothing (Q.singleton (c,Flowing)) Nothing))
+           Nothing -> (g' =~ [c], True , (One c (Just w)))
+           Just _  -> (g', False, (Many Nothing (Q.singleton c) Nothing))
     -- can flow down
-    else (g', False, (One (c,s) (Just w')))
+    else (g', False, (One c (Just w')))
   where
     (g', still, w') = flow' g w
 
 -- bottom end of a flow
-flow' g@Gnd{..} (One (c,s) Nothing) = (g', still, w')
+flow' g@Gnd{..} (One c Nothing) = (g', still, w')
   where
     (g', still, w') = case flowing g c of
       Just D ->
-        (g =| [d c], False, One (c,s) $ Just $ One (d c,Flowing) Nothing)
+        (g =| [d c], False, One c $ Just $ One (d c) Nothing)
       Just L ->
-        (g =| [l c], False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing)]) Nothing)
+        (g =| [l c], False, Many Nothing (Q.fromList [(l c),(c)]) Nothing)
       Just R ->
-        (g =| [r c], False, Many Nothing (Q.fromList [(c,Flowing),(r c,Flowing)]) Nothing)
+        (g =| [r c], False, Many Nothing (Q.fromList [(c),(r c)]) Nothing)
       Just LR ->
-        (g =| [l c, r c], False, Many Nothing (Q.fromList [(l c,Flowing),(c,Flowing),(r c,Flowing)]) Nothing)
+        (g =| [l c, r c], False, Many Nothing (Q.fromList [(l c),(c),(r c)]) Nothing)
       Nothing ->
-        (g =~ [c], True, One (c,Still) Nothing) -- forgets the children, get added to gS
+        (g =~ [c], True, One (c) Nothing) -- forgets the children, get added to gS
 
 -- water is flowing horizontally
 flow' g@Gnd{..} (Many Nothing ws Nothing) = (g', still, w')
@@ -134,7 +134,7 @@ p i n = do
 
 --
 fromCoords :: (Int,[[Coord]]) -> Gnd
-fromCoords (dx,yxs) = Gnd ym yM xm xM m (One ((0,500+dx),Spout) Nothing) S.empty (S.singleton (0,500+dx))
+fromCoords (dx,yxs) = Gnd ym yM xm xM m (One (0,500+dx) Nothing) S.empty (S.singleton (0,500+dx))
   where
     ((ym,yM),(xm,xM)) = extent 0 yxs
     m = M.fromList . map toClay . L.sort . concat $ yxs
@@ -146,11 +146,7 @@ showGnd Gnd{..} = L.intercalate "\n"
   where
     wts = waterTiles gW
     showTile y x | (y,x) `S.member` gS = '~'
-    showTile y x | Just speed <- wts M.!? (y,x)
-      = case speed of
-          Spout -> '+'
-          Still -> '~'
-          Flowing -> '|'
+    showTile y x | (y,x) `S.member` wts = '|'
     showTile y x | Just tile <- gM M.!? (y,x)
       = case tile of
           Sand  -> '.'
@@ -159,8 +155,8 @@ showGnd Gnd{..} = L.intercalate "\n"
 
 --
 
-waterTiles :: Water -> M.Map Coord Speed
-waterTiles = M.fromList . toList
+waterTiles :: Water -> S.Set Coord
+waterTiles = S.fromList . toList
 
 --
 
