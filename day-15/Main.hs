@@ -16,7 +16,8 @@ module Main where
 --     * Yes:
 --       Attack! (??)
 
-
+import Cave
 
 main = do
-  print ()
+  -- cave <- fromString <$> readFile "input.txt"
+  p 24 18 36

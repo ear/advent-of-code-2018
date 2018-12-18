@@ -6,6 +6,7 @@ module Cave
   ( Coord(..)
   , Cave
   , fromString
+  , p
   ) where
 
 import Debug.Trace
@@ -137,9 +138,9 @@ neighbours Cave{..} seen cs = (seen',ns)
           | otherwise                                = (seen           , ns    )
 
 -- | Debug print of a cave flooded at (`y`,`x`) for `n` steps
-p cave y x n
-  = mapM_ (putStrLn . showFlood cave)
-  . take 1 . drop n . flood cave $ C y x
+p y x n = do
+  cave <- fromString <$> readFile "input.txt"
+  mapM_ (putStrLn . showFlood cave) . take 1 . drop n . flood cave $ C y x
 
 showFlood :: Cave -> Flood -> String
 showFlood cave@Cave{..} f = L.intercalate "\n"
