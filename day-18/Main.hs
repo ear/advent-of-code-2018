@@ -87,4 +87,8 @@ main = do
   (size,coords) <- parse <$> readFile "test.txt"
   print coords
   print size
-  print $ evolve size coords 10
+  let area = evolve size coords 10
+  print area
+  let trees = count TreeA $ A.elems area
+      yards = count YardA $ A.elems area
+  print (trees,yards,trees*yards)
