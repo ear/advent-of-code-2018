@@ -33,7 +33,7 @@ evolve (h,w) yxs n = A.runSTUArray $ do
   b <- (A.newArray     :: STUA' s) ((0,0),(h-1,w-1)) (-1)
   forM_ [1..n] $ \i -> do
     tick (h,w) a b (i `mod` 2 == 0) -- First time a=a, b=b; then a=b, b=a; etc.
-  return b
+  return $ if (n `mod` 2 == 0) then a else b
 
 tick (h,w) a0 a1 which = do
   clear (h,w) b -- XXX not needed?
