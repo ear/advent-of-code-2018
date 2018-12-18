@@ -84,7 +84,7 @@ parse = (largest &&& flatten) . map (second $ zip [0..] . map fromChar) . zip [0
 
 main :: IO ()
 main = do
-  (size,coords) <- parse <$> readFile "test.txt"
+  (size,coords) <- parse <$> readFile "input.txt"
   print coords
   print size
   let area = evolve size coords 10
