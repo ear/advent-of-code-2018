@@ -1,7 +1,9 @@
+{-# language PatternSynonyms #-}
 import Debug.Trace
 
 import Data.Foldable
 import Data.Bifunctor
+import Data.Traversable
 
 import Control.Arrow hiding ( second )
 import Control.Monad.ST
@@ -19,23 +21,48 @@ type STUA' s = (Coord,Coord) -> Int -> ST s (A.STUArray s Coord Int)
 data Acre = Open | Tree | Yard
   deriving (Show, Eq, Ord, Enum)
 
+pattern OpenA = 0
+pattern TreeA = 1
+pattern YardA = 2
+
 -- | evolving a (0,0) (yM,xM) grid
 evolve :: Coord -> [(Coord,Acre)] -> Int -> A.UArray Coord Int
 evolve (h,w) yxs n = A.runSTUArray $ do
   a <- (A.newListArray :: STUA s ) ((0,0),(h-1,w-1)) . map (fromEnum . snd) $ yxs
   b <- (A.newArray     :: STUA' s) ((0,0),(h-1,w-1)) (-1)
-  forM_ [0..n] $ \i -> do
-    tick a b (i `mod` 2 == 0) -- First time a=a, b=b; then a=b, b=a; etc.
+  forM_ [1..n] $ \i -> do
+    tick (h,w) a b (i `mod` 2 == 0) -- First time a=a, b=b; then a=b, b=a; etc.
   return b
 
-tick a0 a1 which = do
-  x <- A.readArray a (0,0)
-  traceShowM x
-  A.writeArray b (0,0) x
+tick (h,w) a0 a1 which = do
+  clear (h,w) b -- XXX not needed?
+  forM_ [0..h-1] $ \y -> do
+    forM_ [0..w-1] $ \x -> do
+      n <- A.readArray a (y,x)
+      ns <- neighbours h w a y x
+      traceShowM ns
+      case n of
+        OpenA -> A.writeArray b (y,x) OpenA
+        TreeA -> A.writeArray b (y,x) TreeA
+        YardA -> A.writeArray b (y,x) YardA
   where
     -- swap the buffers at each iteration
-    a | which = a0 | otherwise = a1
-    b | which = a1 | otherwise = a0
+    a | which = a1 | otherwise = a0
+    b | which = a0 | otherwise = a1
+
+neighbours h w a y0 x0 = concat . map concat <$> do
+  forM [max 0 (y0-1) .. min (h-1) (y0+1)] $ \y -> do
+    forM [max 0 (x0-1) .. min (w-1) (x0+1)] $ \x -> do
+      if (y,x) == (y0,x0)
+      then return []
+      else do
+        n <- A.readArray a (y,x)
+        pure [n]
+
+clear (h,w) a = do
+  forM_ [0..h-1] $ \y -> do
+    forM_ [0..w-1] $ \x -> do
+      A.writeArray a (y,x) (-1)
 
 parse = (largest &&& flatten) . map (second $ zip [0..] . map fromChar) . zip [0..] . lines
   where
