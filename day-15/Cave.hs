@@ -101,10 +101,10 @@ flood cave@Cave{..} c@(C y x) = fl0 : go 1 fl0 fr0
   where
     fl0 = M.singleton c (DD 0 N)
     fr0 = (ns,ws,es,ss)
-    ns | (C (y-1) x) `S.member` cS_ = [ (C (y-1) x) ]
-    ws | (C y (x-1)) `S.member` cS_ = [ (C y (x-1)) ]
-    es | (C y (x+1)) `S.member` cS_ = [ (C y (x+1)) ]
-    ss | (C (y+1) x) `S.member` cS_ = [ (C (y+1) x) ]
+    ns | free cave (C (y-1) x) = [ (C (y-1) x) ] | otherwise = []
+    ws | free cave (C y (x-1)) = [ (C y (x-1)) ] | otherwise = []
+    es | free cave (C y (x+1)) = [ (C y (x+1)) ] | otherwise = []
+    ss | free cave (C (y+1) x) = [ (C (y+1) x) ] | otherwise = []
     go i f r = f' : go (i+1) f' r'
       where
         (f',r') = flood1 i cave f r
@@ -127,15 +127,21 @@ flood1 i cave@Cave{..} f (n,w,e,s)
 -- | Neighbouring algorithm
 -- it is applied once for each of the four parallel scans (N, W, E, S)
 neighbours :: Cave -> S.Set Coord -> [Coord] -> (S.Set Coord,[Coord])
-neighbours Cave{..} seen cs = (seen',ns)
+neighbours cave@Cave{..} seen cs = (seen',ns)
   where
-    (seen',ns) = L.foldl' collect (seen,[]) (concatMap adjs cs)
+    (seen',ns) = L.foldl' collect (seen,[]) (concatMap (freeAdjs cave) cs)
       where
         collect (seen,ns) c
           |  c `S.member` cS_
           && c `S.notMember` seen
           && c `M.notMember` cU_ = (S.insert c seen, (c:ns))
           | otherwise                                = (seen           , ns    )
+
+freeAdjs :: Cave -> Coord -> [Coord]
+freeAdjs cave = filter (free cave) . adjs
+
+free :: Cave -> Coord -> Bool
+free Cave{..} c = c `S.member` cS_ && c `M.notMember` cU_
 
 -- | Debug print of a cave flooded at (`y`,`x`) for `n` steps
 p y x n = do
