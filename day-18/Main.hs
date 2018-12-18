@@ -1,4 +1,5 @@
 {-# language PatternSynonyms #-}
+{-# language FlexibleContexts #-}
 import Debug.Trace
 
 import Data.Foldable
@@ -41,14 +42,23 @@ tick (h,w) a0 a1 which = do
       n <- A.readArray a (y,x)
       ns <- neighbours h w a y x
       traceShowM ns
-      case n of
-        OpenA -> A.writeArray b (y,x) OpenA
-        TreeA -> A.writeArray b (y,x) TreeA
-        YardA -> A.writeArray b (y,x) YardA
+      A.writeArray b (y,x) (next n ns)
   where
     -- swap the buffers at each iteration
     a | which = a1 | otherwise = a0
     b | which = a0 | otherwise = a1
+
+next :: Int -> [Int] -> Int
+next OpenA ns | count TreeA ns >= 3 = TreeA
+              | otherwise           = OpenA
+next TreeA ns | count YardA ns >= 3 = YardA
+              | otherwise           = TreeA
+next YardA ns | any (YardA ==) ns
+             && any (TreeA ==) ns   = YardA
+              | otherwise           = OpenA
+
+count :: Eq a => a -> [a] -> Int
+count x = length . filter (x ==)
 
 neighbours h w a y0 x0 = concat . map concat <$> do
   forM [max 0 (y0-1) .. min (h-1) (y0+1)] $ \y -> do
@@ -77,4 +87,4 @@ main = do
   (size,coords) <- parse <$> readFile "test.txt"
   print coords
   print size
-  print $ evolve size coords 1
+  print $ evolve size coords 10
