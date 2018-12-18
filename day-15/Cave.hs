@@ -70,15 +70,15 @@ adjs (C y x) = [C (y-1) x, C y (x+1), C (y+1) x, C y (x-1)]
 
 showCave :: Cave -> String
 showCave cave@Cave{..} = L.intercalate "\n"
-  [ [ showTile cave (C y x) | x <- [0..cW_-1] ] | y <- [0..cH_-1] ]
+  [ concat [ showTile cave (C y x) | x <- [0..cW_-1] ] | y <- [0..cH_-1] ]
 
-showTile :: Cave -> Coord -> Char
+showTile :: Cave -> Coord -> String
 showTile Cave{..} c | Just Unit{..} <- cU_ M.!? c =
   case uRace_ of
-    Goblin -> 'G'
-    Elf    -> 'E'
-showTile Cave{..} c | c `S.member` cS_ = '.'
-showTile _ _ = '#'
+    Goblin -> "\x1b[0;31mG\x1b[0m"
+    Elf    -> "\x1b[0;32mE\x1b[0m"
+showTile Cave{..} c | c `S.member` cS_ = " "
+showTile _ _ = "░"
 
 -- | Directions, in "reading order"
 data Dir = N | W | E | S deriving (Show, Eq, Ord)
@@ -112,7 +112,7 @@ flood cave@Cave{..} c@(C y x) = fl0 : go 1 fl0 fr0
 -- | One iteration of the flooding algorithm: 4 parallel scans for each dir
 flood1 :: Int -> Cave -> Flood -> Frontiers -> (Flood,Frontiers)
 flood1 i cave@Cave{..} f (n,w,e,s)
-  = ( f' , traceShowId (n',w',e',s') )
+  = ( f' , (n',w',e',s') )
   where
     (fn,n') = neighbours cave (M.keysSet f) n
     (fw,w') = neighbours cave fn w
@@ -144,19 +144,20 @@ p y x n = do
 
 showFlood :: Cave -> Flood -> String
 showFlood cave@Cave{..} f = L.intercalate "\n"
-  [ [ showTile' cave f (C y x) | x <- [0..cW_-1] ] | y <- [0..cH_-1] ]
+  [ concat [ showTile1 cave f (C y x) | x <- [0..cW_-1] ]
+    ++ " " ++
+    concat [ showTile2 cave f (C y x) | x <- [0..cW_-1] ]
+  | y <- [0..cH_-1] ]
 
-showTile' :: Cave -> Flood -> Coord -> Char
-showTile' Cave{..} f c | Just (DD dist dir) <- f M.!? c =
+showTile1 :: Cave -> Flood -> Coord -> String
+showTile1 Cave{..} f c | Just (DD dist dir) <- f M.!? c, dist > 0 =
     --head . show $ dist
     case dir of
-      N -> '↑'
-      W -> '←'
-      E -> '→'
-      S -> '↓'
-showTile' Cave{..} _ c | Just Unit{..} <- cU_ M.!? c =
-  case uRace_ of
-    Goblin -> 'G'
-    Elf    -> 'E'
-showTile' Cave{..} _ c | c `S.member` cS_ = '.'
-showTile' _        _ _ = '#'
+      N -> "↑"
+      W -> "‹" -- '←'
+      E -> "›" -- '→'
+      S -> "↓"
+showTile1 cave f c = showTile cave c
+
+showTile2 Cave{..} f c | Just (DD dist _) <- f M.!? c, dist > 0 = take 1 . show $ dist
+showTile2 cave f c = showTile cave c
