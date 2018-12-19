@@ -37,7 +37,7 @@ type Program a = [Instruction a]
 -- | Construction
 
 emptyMachine :: N a => M a
-emptyMachine = M 0 0 0 0 0 0 0
+emptyMachine = M 0 1 0 0 0 0 0
 
 
 -- | Primitives
