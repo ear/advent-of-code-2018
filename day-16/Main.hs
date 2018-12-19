@@ -1,4 +1,4 @@
-
+{-# language TypeApplications #-}
 
 import Machine
 import Data.Word
@@ -13,7 +13,7 @@ parseSamples = undefined
 
 
 main = do
-  samples <- parseSamples <$> readFile "input.txt"
+  samples <- parseSamples @Word8 <$> readFile "input.txt"
   print samples
 
 
