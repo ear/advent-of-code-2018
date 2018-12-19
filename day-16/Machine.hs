@@ -15,7 +15,7 @@ data M a = M { r0 :: !a, r1 :: !a, r2 :: !a, r3 :: !a }
 
 -- | Machine number
 
-type N a = (Num a, Bits a, Ord a, Read a)
+type N a = (Num a, Bits a, Ord a, Read a, Show a)
 
 
 -- | Construction
