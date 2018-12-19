@@ -5,6 +5,8 @@ module Machine where
 
 import Data.Int
 import Data.Bits
+import qualified Data.List as L
+import qualified Data.Array.IArray as A
 
 
 -- | Machine (four registers: r0,r1,r2,r3)
@@ -15,7 +17,7 @@ data M a = M { r0 :: !a, r1 :: !a, r2 :: !a, r3 :: !a }
 
 -- | Machine number
 
-type N a = (Num a, Bits a, Ord a, Read a, Show a)
+type N a = (Integral a, Num a, Bits a, Ord a, Read a, Show a, A.Ix a)
 
 
 -- | Construction
@@ -23,6 +25,9 @@ type N a = (Num a, Bits a, Ord a, Read a, Show a)
 fromList :: N a => [a] -> M a
 fromList [a,b,c,d] = M a b c d
 fromList _ = error "wrong machine format"
+
+emptyMachine :: N a => M a
+emptyMachine = M 0 0 0 0
 
 
 -- | Primitives
@@ -64,6 +69,11 @@ ops =
   , ("eqir",eqir)
   , ("eqri",eqri)
   , ("eqrr",eqrr) ]
+
+opFn :: N a => String -> Op a
+opFn name = case L.find ((name ==) . fst) ops of
+  Just (_,fn) -> fn
+  Nothing -> error "inexistent op name"
 
 
 -- | Addition
