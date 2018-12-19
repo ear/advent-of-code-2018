@@ -15,7 +15,14 @@ data M a = M { r0 :: !a, r1 :: !a, r2 :: !a, r3 :: !a }
 
 -- | Machine number
 
-type N a = (Num a, Bits a, Ord a)
+type N a = (Num a, Bits a, Ord a, Read a)
+
+
+-- | Construction
+
+fromList :: N a => [a] -> M a
+fromList [a,b,c,d] = M a b c d
+fromList _ = error "wrong machine format"
 
 
 -- | Primitives
