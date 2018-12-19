@@ -42,86 +42,110 @@ get M{..} 2 = r2
 get M{..} 3 = r3
 
 
+-- | Operations
+
+type Op a = M a -> a -> a -> a -> M a
+
+ops :: N a => [(String,Op a)]
+ops =
+  [ ("addr",addr)
+  , ("addi",addi)
+  , ("mulr",mulr)
+  , ("muli",muli)
+  , ("banr",banr)
+  , ("bani",bani)
+  , ("borr",borr)
+  , ("bori",bori)
+  , ("setr",setr)
+  , ("seti",seti)
+  , ("gtir",gtir)
+  , ("gtri",gtri)
+  , ("gtrr",gtrr)
+  , ("eqir",eqir)
+  , ("eqri",eqri)
+  , ("eqrr",eqrr) ]
+
+
 -- | Addition
 
 -- add register
-addr :: N a => M a -> a -> a -> a -> M a
+addr :: N a => Op a
 addr m@M{..} a b c = set m c $ get m a + get m b
 
 -- add immediate
-addi :: N a => M a -> a -> a -> a -> M a
+addi :: N a => Op a
 addi m@M{..} a b c = set m c $ get m a + b
 
 
 -- | Multiplication
 
 -- multiply register
-mulr :: N a => M a -> a -> a -> a -> M a
+mulr :: N a => Op a
 mulr m@M{..} a b c = set m c $ get m a * get m b
 
 -- multiply immediate
-muli :: N a => M a -> a -> a -> a -> M a
+muli :: N a => Op a
 muli m@M{..} a b c = set m c $ get m a * b
 
 
 -- | Bitwise AND
 
 -- bitwise AND register
-banr :: N a => M a -> a -> a -> a -> M a
+banr :: N a => Op a
 banr m@M{..} a b c = set m c $ get m a .&. get m b
 
 -- bitwise AND immediate
-bani :: N a => M a -> a -> a -> a -> M a
+bani :: N a => Op a
 bani m@M{..} a b c = set m c $ get m a .&. b
 
 
 -- | Bitwise OR
 
 -- bitwise OR register
-borr :: N a => M a -> a -> a -> a -> M a
+borr :: N a => Op a
 borr m@M{..} a b c = set m c $ get m a .|. get m b
 
 -- bitwise OR immediate
-bori :: N a => M a -> a -> a -> a -> M a
+bori :: N a => Op a
 bori m@M{..} a b c = set m c $ get m a .|. b
 
 
 -- | Assignment
 
 -- set register
-setr :: N a => M a -> a -> a -> a -> M a
+setr :: N a => Op a
 setr m@M{..} a _ c = set m c $ get m a
 
 -- set immediate
-seti :: N a => M a -> a -> a -> a -> M a
+seti :: N a => Op a
 seti m@M{..} a _ c = set m c $ a
 
 
 -- | Greater-than testing
 
 -- greater-than immediate/register
-gtir :: N a => M a -> a -> a -> a -> M a
+gtir :: N a => Op a
 gtir m@M{..} a b c = set m c $ if a > get m b then 1 else 0
 
 -- greater-than register/immediate
-gtri :: N a => M a -> a -> a -> a -> M a
+gtri :: N a => Op a
 gtri m@M{..} a b c = set m c $ if get m a > b then 1 else 0
 
 -- greater-than register/register
-gtrr :: N a => M a -> a -> a -> a -> M a
+gtrr :: N a => Op a
 gtrr m@M{..} a b c = set m c $ if get m a > get m b then 1 else 0
 
 
 -- | Equality testing
 
 -- equal immediate/register
-eqir :: N a => M a -> a -> a -> a -> M a
+eqir :: N a => Op a
 eqir m@M{..} a b c = set m c $ if a == get m b then 1 else 0
 
 -- equal register/immediate
-eqri :: N a => M a -> a -> a -> a -> M a
+eqri :: N a => Op a
 eqri m@M{..} a b c = set m c $ if get m a == b then 1 else 0
 
 -- equal register/register
-eqrr :: N a => M a -> a -> a -> a -> M a
+eqrr :: N a => Op a
 eqrr m@M{..} a b c = set m c $ if get m a == get m b then 1 else 0
