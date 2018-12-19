@@ -1,12 +1,16 @@
 {-# language TypeApplications #-}
 {-# language OverloadedLists #-}
 
+import Text.Printf
+
 import Machine
 import Data.Ord
 import Data.Word
+import Data.Bifunctor
 import qualified Data.Set as S
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
+import qualified Data.Array.IArray as A
 
 
 -- | Parsing
@@ -34,6 +38,15 @@ divider ("":"":"":_) = True
 divider _ = False
 
 
+type Instruction a = (a,a,a,a)
+type Program a = [Instruction a]
+
+parseProgram :: N a => String -> Program a
+parseProgram =
+  map (\[a,b,c,d] -> (a,b,c,d)) . map (map read . words) . clean' . lines
+
+clean' = head . drop 3 . dropWhile (not . divider) . L.tails
+
 -- | Part 1
 
 part1 :: N a => [Sample a] -> Int
@@ -55,14 +68,17 @@ atLeast n (_:xs)         = atLeast (pred n) xs
 
 type InstructionSet a = [(a,String)]
 
-part2 :: N a => [Sample a] -> InstructionSet a
-part2 xs = i
+type InstructionTable a = A.Array a (Op a)
+
+exec :: N a => InstructionTable a -> M a -> Instruction a -> M a
+exec t m (op,a,b,c) = (t A.! op) m a b c
+
+part2 :: N a => InstructionSet a -> Program a -> a
+part2 s = r0 . L.foldl' (exec table) emptyMachine
   where
-    i = M.toAscList . reduce . M.fromList $
-          [ ( S.fromList [ code | Sample before after [code,a,b,c] <- xs
-                                  , op before a b c == after ]
-            , name )
-          | (name,op) <- ops ]
+    (opcodes,names) = unzip s
+    functions = second opFn <$> s
+    table = A.array (minimum opcodes, maximum opcodes) functions
 
 newtype Alts a = Alts { getAlts :: S.Set a }
   deriving (Show, Eq)
@@ -83,9 +99,21 @@ reduce = go M.empty . M.mapKeys Alts
           --          vvvv this is the singleton assumption in the problem
           Just ((Alts [op],name),m') = M.minViewWithKey m
 
+instructionSet :: N a => [Sample a] -> InstructionSet a
+instructionSet xs = i
+  where
+    i = M.toAscList . reduce . M.fromList $
+          [ ( S.fromList [ code | Sample before after [code,a,b,c] <- xs
+                                  , op before a b c == after ]
+            , name )
+          | (name,op) <- ops ]
+
+
 -- | Main
 
 main = do
-  samples <- parseSamples @Word8 <$> readFile "input.txt"
-  -- print $ part1 samples
-  mapM_ print $ part2 samples
+  samples <- parseSamples @Word32 <$> readFile "input.txt"
+  printf "Samples behaving like 3 or more opcodes: %d\n" $ part1 samples
+  program <- parseProgram @Word32 <$> readFile "input.txt"
+  printf "Value of r0 at the end of the input program: %d\n" $
+    part2 (instructionSet samples) program
