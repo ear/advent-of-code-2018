@@ -73,10 +73,12 @@ syms = A.array (0,35) $ zip [0..] $
 
 -- debugging structure
 data D a = D
-  { iter_ :: Int
-  , ips_  :: M.Map a Int
-  , ip_   :: a
-  , m_    :: M a }
+  { iter_ :: Int             -- current Iteration
+  , ip_   :: a               -- current IP
+  , m_    :: M a             -- current machine state
+  , ips_  :: M.Map a Int     -- histogram of past IPs
+  , injs_ :: M.Map Int (M a) -- inject Machine at particular Iteration
+  }
 incrIter d@D{..} = d { iter_ = succ iter_ }
 collectIP ip d@D{..} = d
   { ips_ = M.insertWith (+) ip 1 ips_
@@ -89,9 +91,18 @@ dumpIPs
   = L.intercalate " " . map (uncurry $ printf "(%d)%d")
   . filter (\(ip,_) -> ip < 18) . M.toAscList
 
+-- next idea: inject code at a specific iteration #
+-- in place of / before / after ?
+-- even better yet: set the M a to the desired state and that's it.
+-- this one should  not change the output
+injs = M.fromList $
+  -- [(22, M 5 0 1 10551418 4 1 0)] -- orig
+  -- [(22, M 5 0 1 10551418 4 1 10551418 )] -- replace
+  [(26, M 9 0 1 10551418 8 10551419 0)]
+
 --run :: N a => a -> Table a -> M a
 run :: Int64 -> Table Int64 -> M Int64
-run i t = go (D 0 M.empty 0 emptyMachine) emptyMachine
+run i t = go (D 0 0 emptyMachine M.empty injs) emptyMachine
   where
     go _ m@M{..} | let (ipm,ipM) = A.bounds t in ip < ipm || ip > ipM = m
     go d@D{..} m@M{..} = go (trace (dump d') d') m'''
@@ -99,7 +110,10 @@ run i t = go (D 0 M.empty 0 emptyMachine) emptyMachine
         f = t A.! ip
         m'   = set m i ip
         m''  = f m'
-        m''' = set m'' (-1) $ succ $ get m'' i
+             -- debugger injection
+        m''' | Just im <- injs_ M.!? succ iter_ = trace (printf "INJECTION @ %d" (succ iter_)) im
+             -- regular evaluation
+             | otherwise = set m'' (-1) $ succ $ get m'' i
         -- debugger
         d' = incrIter $ collectIP ip $ d { m_ = m''' }
 
