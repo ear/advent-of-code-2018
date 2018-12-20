@@ -1,6 +1,9 @@
 {-# language TypeApplications #-}
 {-# language RecordWildCards #-}
+{-# language ViewPatterns #-}
+{-# language FlexibleContexts #-}
 
+import Text.Printf
 import Debug.Trace
 
 import Machine
@@ -8,6 +11,7 @@ import Machine
 import Data.Int
 
 import qualified Data.List as L
+import qualified Data.Map.Strict as M
 import qualified Data.Array.IArray as A
 
 type Table a = A.Array a (M a -> M a)
@@ -28,16 +32,76 @@ prog = A.array (0,35) $ zip [0..] $
   , mulr 3 5 5  , muli 5 14 5 , mulr 5 3 5 , addr 2 5 2 , seti 0 8 0
   , seti 0 9 3 ]
 
-run :: N a => a -> Table a -> M a
-run i t = go emptyMachine
+syms :: A.Array Int64 String
+syms = A.array (0,35) $ zip [0..] $
+  [ "r3 = r3 + 16;   "
+  , "r1 = 1;         "
+  , "r4 = 1;         "
+  , "r5 = r1 * r4;   "
+  , "r5 = (r5 == r2);"
+  , "jmp +r5;     (*)" -- "r3 = r5 + r3;   "
+  , "jmp +1;         " -- "r3 = r3 + 1;    "
+  , "r0 = r1 + r0;   "
+  , "r4 = r4 + 1;    "
+  , "r5 = (r4 > r2); "
+  , "jmp +r5;    (**)" -- "r3 = r3 + r5;   "
+  , "jmp @2;         " -- "r3 = 2;         "
+  , "r1 = r1 + 1;    "
+  , "r5 = (r1 > r2); "
+  , "jmp +r5;   (***)" -- " -- "r3 = r5 + r3;   "
+  , "jmp @1;         " -- "r3 = 1;         "
+  , "jmp +(r3*r3);   " -- "r3 = r3 * r3;   "
+  , "r2 = r2 + 2;    "
+  , "r2 = r2 * r2;   "
+  , "r2 = r3 * r2;   "
+  , "r2 = r2 * 11;   "
+  , "r5 = r5 + 8;    "
+  , "r5 = r5 * r3;   "
+  , "r5 = r5 + 6;    "
+  , "r2 = r2 + r5;   "
+  , "jmp +r0;        " -- "r3 = r3 + r0;   "
+  , "jmp @0;         " -- "r3 = 0;         "
+  , "r5 = r3;        "
+  , "r5 = r5 * r3;   "
+  , "r5 = r3 + r5;   "
+  , "r5 = r3 * r5;   "
+  , "r5 = r5 * 14;   "
+  , "r5 = r5 * r3;   "
+  , "r2 = r2 + r5;   "
+  , "r0 = 0;         "
+  , "jmp @0;         " ] -- "r3 = 0;         " ]
+
+-- debugging structure
+data D a = D
+  { iter_ :: Int
+  , ips_  :: M.Map a Int
+  , ip_   :: a
+  , m_    :: M a }
+incrIter d@D{..} = d { iter_ = succ iter_ }
+collectIP ip d@D{..} = d
+  { ips_ = M.insertWith (+) ip 1 ips_
+  , ip_  = ip }
+type P = String -> Int -> Int64 -> String -> Int64 -> Int64 -> Int64 -> Int64 -> Int64 -> Int64 -> Int64 -> String -> String
+dump D{..}
+  = (printf :: P) "%4d: %3d  %s  [ip:%3d r0:%d r1:%d r2:%d r3:%d r4:%d r5:%d]  %s"
+    iter_ ip_ (syms A.! ip_) (ip m_) (r0 m_) (r1 m_) (r2 m_) (r3 m_) (r4 m_) (r5 m_) (dumpIPs ips_)
+dumpIPs
+  = L.intercalate " " . map (uncurry $ printf "(%d)%d")
+  . filter (\(ip,_) -> ip < 18) . M.toAscList
+
+--run :: N a => a -> Table a -> M a
+run :: Int64 -> Table Int64 -> M Int64
+run i t = go (D 0 M.empty 0 emptyMachine) emptyMachine
   where
-    go m@M{..} | let (ipm,ipM) = A.bounds t in ip < ipm || ip > ipM = m
-    go m@M{..} = go m'''
+    go _ m@M{..} | let (ipm,ipM) = A.bounds t in ip < ipm || ip > ipM = m
+    go d@D{..} m@M{..} = go (trace (dump d') d') m'''
       where
         f = t A.! ip
         m'   = set m i ip
         m''  = f m'
         m''' = set m'' (-1) $ succ $ get m'' i
+        -- debugger
+        d' = incrIter $ collectIP ip $ d { m_ = m''' }
 
 --main = print (run @Int64 0 es)
-main = print (run @Int64 3 prog)
+main = print (run 3 prog)
