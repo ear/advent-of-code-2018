@@ -27,21 +27,26 @@ showTile m c | Just t <- m M.!? c =  t
              | otherwise          = '?'
 
 build :: String -> Maze
-build = walk (M.empty,(0,0))
+build = walk (M.empty,(0,0)) []
 
-walk :: (Maze,Coord) -> String -> Maze
+walk :: (Maze,Coord) -> [Coord] -> String -> Maze
 
 -- end
-walk (m,c) ('$':[]) = m
+walk (m,c) _ ('$':[]) = m
 
 -- begin
-walk (m,c) ('^':xs) = walk (m',c) xs
+walk (m,c) cs ('^':xs) = walk (m',c) cs xs
   where m' = M.fromList $ roomAt 'X' c
 
+-- branching
+walk (m,c) cs     ('(':xs) = walk (m,c) (c:cs) xs
+walk (m,_) (c:cs) ('|':xs) = walk (m,c) (c:cs) xs
+walk (m,_) (c:cs) (')':xs) = walk (m,c) (  cs) xs
+
 -- directions
-walk (m,c) (d:xs)
+walk (m,c) cs (d:xs)
   | d `notElem` "NESW" = error "erroneous direction"
-  | otherwise = walk (m',c') xs
+  | otherwise = walk (m',c') cs xs
   where c' = move d . move d $ c
         additions = roomAt d c'
         m' = L.foldl' (<+>) m additions
