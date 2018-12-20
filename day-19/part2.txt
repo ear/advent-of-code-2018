@@ -1,0 +1,94 @@
+
+0 17-25 27-35  initialization to:
+  [ip:  1 r0:0 r1:0 r2:10551418 r3:0 r4:0 r5:10550400]
+
+1-2  initialize loop which ends with:
+  [ip:  3 r0:0 r1:1 r2:10551418 r3:2 r4:1 r5:10550400]
+
+3 is the first instruction of the loop body
+
+  3  r5 = r1 * r4;    r5=1
+  4  r5 = (r5 == r2); false
+  5  jmp +r5;     (*)
+  6  jmp +1;          this (so far never) goes to 9 (??)
+  8  r4++;
+  9  r5 = (r4 > r2);  when this is true
+ 10  jmp +r5;    (**) this will eventually skip 11
+ 11  jmp @2;          actually jumps at 3
+
+when 4 is true, if r2 does not change
+then 5 jumps off the program and it terminates hm!
+
+so r5 starts at 0 and when it's 10551418 the program
+will stop executing
+
+what happens to r3 and r4 when such a condition is met?
+let's find out.
+
+if I understand correctly
+r4 = 0;
+while (r5 != 10551418)
+{
+	r4++;
+	if (r4 > r2)
+		???; // let's find this out
+	r5 = r4;
+}
+
+excellent. now we're doing the same thing but with r1++
+
+now looking for
+the least n such that
+r4 = n * 2 > 10551418
+
+----
+
+all numbers are always positive
+=> relative jumps (jmp +…) are only forward
+
+from 16 it can only jump to
+16+16*16 which is out of bounds
+how do we get to instruction 16?
+
+I don't see how the instructions 1-15 can get to either 0 or 16
+
+jmp +r5 is always jmp +0 or jmp +1
+which means
+5 -> 6 | 7
+10 -> 11 | 12
+14 -> 15 | 16 <- there it is!
+
+let's go backwards.
+
+14 goes to 16 when r1 > r2
+(I sincerely hope that 17-35 are never reached)
+
+r1 only gets set once (1: r1 = 1)
+   only gets incremented (12: r1++)
+
+r2 never changes (if 17-35 isn't reached)
+
+r3 = ip
+
+r4 only gets set once (2: r4 = 1)
+   only gets incremented (8: r4++)
+
+r5 is a flag register that is always either 0 or 1
+
+for (r1 = 1; r1 <= 10551418; r1++)
+{
+	for (r4 = 1; r4 <= 10551418; r4++)
+	{
+		if (r1*r4 == r2)
+			r0 += r1
+	}
+}
+
+I.e. r0 accumulates the divisors of that number!
+
+$ gp --quiet
+? fold((a,b)->a+b,divisors(10551418))
+16533000
+?
+
+That's the answer to part 2!
