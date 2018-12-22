@@ -5,16 +5,63 @@ import Data.Bifunctor ( bimap )
 import Control.Arrow  ( (&&&) )
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
+import qualified Data.Array.IArray as A
 
 type Dir = Char -- "NESW"
 type Coord = (Int,Int)
 type Maze = M.Map Coord Char
+type Tile = Int
+type AMaze = A.Array Coord Tile
 
-main = do
-  m <- showMaze . build . filter ('\n'/=) <$> readFile "test.txt"
-  putStrLn m
-  putChar '\n'
-  putStrLn . map (\case '?' -> '#'; c -> c) $ m
+main = print =<< part1 <$> readFile "input.txt"
+
+part1 = snd . flood . solidify . build . filter ('\n'/=)
+
+-- flood fill an AMaze breadth-first
+flood :: AMaze -> (AMaze,Int)
+flood = go 0 [(0,0)]
+  where go n [] a = (a,pred n)
+        go n cs a = go (succ n) (concatMap (neighbours a') cs) a'
+          where a' = a A.// [ (c,n) | c <- cs ]
+
+-- coordinates of rooms accessible through a door from the given coordinate
+neighbours :: AMaze -> Coord -> [Coord]
+neighbours a c = concat $
+  [ [ (n.n) c | a A.! (n c) == (-2), a A.! (n.n $ c) == (-1) ]
+  , [ (e.e) c | a A.! (e c) == (-3), a A.! (e.e $ c) == (-1) ]
+  , [ (s.s) c | a A.! (s c) == (-2), a A.! (s.s $ c) == (-1) ]
+  , [ (w.w) c | a A.! (w c) == (-3), a A.! (w.w $ c) == (-1) ] ]
+
+showAMaze :: AMaze -> String
+showAMaze a = L.intercalate "\n" $
+  [ [ showAMazeTile $ a A.! (x,y) | x <- [xm..xM] ] | y <- [yM,yM-1..ym] ]
+  where ((xm,ym),(xM,yM)) = A.bounds a
+
+showAMazeTile (-1) = '.'
+showAMazeTile (-2) = '-'
+showAMazeTile (-3) = '|'
+showAMazeTile (-4) = '▓'
+showAMazeTile (-5) = 'X'
+showAMazeTile   n  = head (show n)
+
+extent :: Maze -> (Coord,Coord)
+extent = (minimum &&& maximum) . M.keysSet
+
+-- turn a Maze into an AMaze and set '?' to '#' (i.e. unknowns become walls)
+solidify :: Maze -> AMaze
+solidify m = A.array bounds assocs
+  where bounds@((xm,ym),(xM,yM)) = extent m
+        assocs = [ ((x,y),solidifyTile t)
+                 | x <- [xm..xM], y <- [yM,yM-1..ym]
+                 , let Just t = m M.!? (x,y) ]
+
+solidifyTile '.' = -1
+solidifyTile '-' = -2
+solidifyTile '|' = -3
+solidifyTile '?' = -4
+solidifyTile '#' = -4
+solidifyTile 'X' = -5
+solidifyTile  _  = error "unknown tile"
 
 p = putStrLn . map (\case '?'->'▓';c->c) . showMaze . build
 
