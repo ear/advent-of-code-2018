@@ -87,7 +87,7 @@ walk :: (Maze,Coord) {- ^ (partial build, current coordinate) -}
      -> Maze
 
 -- end
-walk (m,c) _ ('$':[]) = m
+walk (m,c) _ ('$':_) = m
 
 -- begin
 walk (m,c) cs ('^':xs) = walk (m',c) cs xs
