@@ -13,9 +13,14 @@ type Maze = M.Map Coord Char
 type Tile = Int
 type AMaze = A.Array Coord Tile
 
-main = print =<< part1 <$> readFile "input.txt"
+main = do
+  maze <- flood . solidify . build <$> readFile "input.txt"
+  print $ part1 maze
+  print $ part2 maze
 
-part1 = snd . flood . solidify . build . filter ('\n'/=)
+part1 = snd
+
+part2 = length . filter (\n -> n >= 1000) . A.elems . fst
 
 -- flood fill an AMaze breadth-first
 flood :: AMaze -> (AMaze,Int)
