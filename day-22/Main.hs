@@ -20,23 +20,27 @@ target = (14,796)
 --depth = 510
 --target = (10,10)
 
-part1 = getSum . foldMap (Sum . risk . fromErosion) $ cave
+part1 = getSum . foldMap (Sum . risk) $ cave
 
 main = print $ part1
 
 -- Cave
 
+cave = fromErosion <$> erosion
+
+-- Erosion
+
 mouth = (0,0) :: Coord
 
-cave :: A.Array Coord Int {- Erosion -}
-cave = A.array (mouth,target) $
+erosion :: A.Array Coord Int
+erosion = A.array (mouth,target) $
   [ ( (x,y), at x y ) | y <- [0..snd target], x <- [0..fst target] ]
     where
       -- Compute erosion at coordinate
       at x y | (x,y) == mouth || (x,y) == target = depth `mod` 20183
       at x 0 = ((x * 16807) + depth) `mod` 20183
       at 0 y = ((y * 48271) + depth) `mod` 20183
-      at x y = (cave A.! (x,y-1) * cave A.! (x-1,y) + depth) `mod` 20183
+      at x y = (erosion A.! (x,y-1) * erosion A.! (x-1,y) + depth) `mod` 20183
 
 risk :: Region -> Int
 risk Rocky  = 0
@@ -52,7 +56,7 @@ p = putStrLn . L.intercalate "\n" $
   [ concat [ showRegion (x,y) | x <- [0..fst target] ] | y <- [0..snd target] ]
   where showRegion (0,0) = "M"
         showRegion c | c == target = "T"
-        showRegion c = show . fromErosion $ cave A.! c
+        showRegion c = show . fromErosion $ erosion A.! c
 
 instance Show Region where
   showsPrec _ Rocky  = showChar '.'
