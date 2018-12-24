@@ -1,4 +1,8 @@
 {-# language ViewPatterns #-}
+{-# language RecordWildCards #-}
+{-# language FlexibleContexts #-}
+
+import Text.Printf
 
 import Data.Foldable
 import Data.Semigroup
@@ -12,17 +16,44 @@ type Erosion = Int
 
 data Region  = Rocky | Wet | Narrow
 
+type Cave = A.Array Coord Region
+
+
 -- Input
 
-depth = 5355
-target = (14,796)
+--depth = 5355
+--target = (14,796)
 -- test
---depth = 510
---target = (10,10)
+depth = 510
+target = (10,10)
 
 part1 = getSum . foldMap (Sum . risk) $ cave
 
 main = print $ part1
+
+-- Flood
+--
+-- Idea: flood the cave with a triple of `Maybe Int`s
+--
+-- Each represents what is the minimum known distance from the cave's mouth
+-- such that a path of that length arrives to the coordinates with that tool.
+--
+-- Starts out as Nothings and expands successively.
+
+data T = T { g_ :: Maybe Int, t_ :: Maybe Int, n_ :: Maybe Int }
+
+type Flood = A.Array Coord T
+
+emptyFlood :: Cave -> Flood
+emptyFlood a = A.listArray (A.bounds a) $
+  (T Nothing (Just 0) Nothing) : repeat (T Nothing Nothing Nothing)
+
+flood :: Cave -> Flood
+flood cave = flood1 cave (emptyFlood cave) [mouth]
+
+flood1 :: Cave -> Flood -> [Coord] -> Flood
+flood1 = undefined
+
 
 -- Cave
 
@@ -62,3 +93,10 @@ instance Show Region where
   showsPrec _ Rocky  = showChar '.'
   showsPrec _ Wet    = showChar '='
   showsPrec _ Narrow = showChar '|'
+
+pf f = putStrLn . L.intercalate "\n" $
+  [ L.intercalate " " [ showDists f (x,y) | x <- [0..fst target] ] | y <- [0..snd target] ]
+  where showDists f (x,y) =
+          let T{..} = f A.! (x,y) in L.intercalate "" $ map showDist [g_,t_,n_]
+        showDist Nothing  = " ∞"
+        showDist (Just n) = printf "%2d" n
