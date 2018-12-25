@@ -24,14 +24,13 @@ type Cave = A.Array Coord Region
 
 -- Input
 
---depth = 5355
---target = (14,796)
+depth = 5355
+target = (14,796)
 -- test
-depth = 510
-target = (10,10)
+--depth = 510
+--target = (10,10)
 
-xM = 15
-yM = 15
+(xM,yM) = (26,800)
 
 part1 = getSum . foldMap (Sum . risk) $ cave
 
