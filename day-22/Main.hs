@@ -35,7 +35,18 @@ yM = 15
 
 part1 = getSum . foldMap (Sum . risk) $ cave
 
-main = print $ part1
+part2 = minimum [tT, tN, tG]
+  where
+    tT = visits M.! Torch
+    tN = pad 7 $ visits M.! Neither
+    tG = pad 7 $ visits M.! Gear
+    visits = (v_ flood) A.! target
+    pad n x | x == maxBound = x
+            | otherwise     = x + n
+
+main = do
+  print $ part1
+  print $ part2
 
 t = True
 f = False
@@ -44,7 +55,7 @@ f = False
 
 type Time = Int
 
-data Tool = Gear | Torch | Neither
+data Tool = Neither | Torch | Gear
   deriving (Eq, Enum, Ord, Show)
 
 type Item = (Time, Tool, Coord)
@@ -53,21 +64,21 @@ type Visit = (M.Map Tool Int)
 
 data Flood = Flood
   { t_ :: Time
-  , s_ :: A.Array Coord Visit
+  , v_ :: A.Array Coord Visit
   , q_ :: S.Set Item
   } deriving Show
 
 emptyVisit :: Visit
 emptyVisit = M.fromAscList $
-  [ (Gear,maxBound)
+  [ (Neither,maxBound)
   , (Torch,maxBound)
-  , (Neither,maxBound) ]
+  , (Gear,maxBound) ]
 
 emptyFlood :: Cave -> Flood
 emptyFlood a = Flood
   { t_ = 0
-  , s_ = A.listArray (A.bounds a) $
-           M.singleton Torch 0 : repeat emptyVisit
+  , v_ = A.listArray (A.bounds a) $
+           M.insert Torch 0 emptyVisit : repeat emptyVisit
   , q_ = S.singleton (0,Torch,(0,0)) }
 
 flood :: Flood
@@ -79,46 +90,30 @@ flood1 f@Flood{..} =
     Nothing -> f
     Just (i@(time,_,_), rest) -> f'
       where
-        f' = f { t_ = t_ + 1, s_ = s', q_ = q' }
+        f' = f { t_ = t_ + 1, v_ = v', q_ = q' }
         -- xs = frontier to expand
         -- ys = later
-        (xs,ys) = S.partition (\(time',_,_) -> time == time') q_
+        (now,later) = S.partition (\(time',_,_) -> time == time') q_
         -- zs = new frontier
-        zs = adjs f =<< toList xs
+        frontier = adjs f =<< toList now
         -- save the tools in the map
-        s' = A.accum keepLeast s_ [ (c,(t,tool)) | (t,tool,c) <- zs ]
+        v' = A.accum keepLeast v_ [ (c,(t,tool)) | (t,tool,c) <- frontier ]
 
-        --keepLeast :: Visit -> Item -> Visit
-        --keepLeast :: Visit -> (Time,Tool) -> Visit
-        --
-        keepLeast v (t,tool) = M.insert tool (min t t') v
-          where
-            t' = v M.! tool
+        keepLeast v (t,tool) = M.insertWith min tool t v
 
-        q' = S.union ys $ S.fromList zs
+        q' = S.union later $ S.fromList frontier
 
 adjs :: Flood -> Item -> [Item]
 adjs f i@(_,_,c) = itemAt f i =<< around c
 
 itemAt :: Flood -> Item -> Coord -> [Item]
-itemAt Flood{..} i@(_,tool,c) c'
-
-  -- the tool is legal on c'
-  | compatible tool c' =
-    case tool `elem` s_ A.! c' of
-      -- c' already visited with this tool
-      True  -> []
-      -- first time arrived in c' with this tool
-      False -> pure (t_ + 1, tool, c')
-
-  -- the tool is not legal on c'
-  | otherwise       =
-    let tool' = pick tool r r' in
-    case tool' `elem` s_ A.! c' of
-      True  -> []
-      False -> pure (t_ + 8, tool', c')
-
+itemAt Flood{..} i@(time,tool,c) c'
+  | time' < (v_ A.! c') M.! tool' = [i]
+  | otherwise                     = []
   where
+    i@(time',tool',_)
+      | compatible tool c' = (time + 1, tool          , c')
+      | otherwise          = (time + 8, pick tool r r', c')
     r  = cave A.! c
     r' = cave A.! c'
 
@@ -134,23 +129,8 @@ pick t r1 r2
 
 -- TODO: check if the ordering of the coordinates is sane
 around :: Coord -> [Coord]
-around c@(x,y) =
-  case x of
-    0           ->
-      case y of
-        0           -> [ e c, s c      ]
-        _ | y == yM -> [      s c, w c ]
-        _           -> [ e c, s c, w c ]
-    _ | x == xM ->
-      case y of
-        0           -> [ w c, s c      ]
-        _ | y == yM -> [ n c, w c      ]
-        _           -> [ e c, n c, w c ]
-    _  ->
-      case y of
-        0           -> [ w c, s c, e c ]
-        _ | y == yM -> [ w c, n c, e c ]
-        _           -> [ e c, s c, w c, n c ]
+around c = filter inside [ n c, e c, s c, w c ]
+  where inside (x,y) = 0 <= x && x <= xM && 0 <= y && y <= yM
 
 
 -- Cave
@@ -162,8 +142,8 @@ cave = fromErosion <$> erosion
 mouth = (0,0) :: Coord
 
 erosion :: A.Array Coord Int
-erosion = A.array (mouth,target) $
-  [ ( (x,y), at x y ) | y <- [0..snd target], x <- [0..fst target] ]
+erosion = A.array (mouth,(xM,yM)) $
+  [ ( (x,y), at x y ) | y <- [0..yM], x <- [0..xM] ]
     where
       -- Compute erosion at coordinate
       at x y | (x,y) == mouth || (x,y) == target = depth `mod` 20183
