@@ -18,25 +18,54 @@ type Overlaps = A.UArray (Int,Int) Bool
 
 -- part 2
 
-part2 bots =
-  --minimum [ norm p | p <- [ p_ bot ]
-  --                 , sum [ 1 | bot' <- bots, p `inRange` bot' ] == imax ]
-  [ sum [ 1 | bot' <- bots, p `inRange` bot' ] | p <- sample ]
+part2 bots = L.sortBy (comparing (\(_,_,i) -> i)) $ classify <$> bests
   where
-    cs = counts bots
-    (i,imax) = maximumBy (comparing snd) cs
-    bot = bots !! i
-    -- these are the bots that need to test the points
-    --bots' = map (bots !!) 
-    [_,left,_,_,_,_] = vertices bot
-    (x,y,z) = left
-    sample = (\x -> (x,y,z)) <$> [x, x+100 .. x+1000]
-    cubePoints =
-      [ (x,y,z) | x <- [xm,xm+step..xM]
-                , y <- [ym,ym+step..yM]
-                , z <- [zm,zm+step..zM] ]
-    ((xm,ym,zm),(xM,yM,zM)) = cube bot
-    step = (xM - xm) `div` 200
+    --bots' = map ((bots !!) . fst) . take 80 . reverse . L.sortBy (comparing $ length . snd) . counts $ bots
+    bots' = take 80 . L.sortBy (comparing $ minimum . map norm . vertices) $ bots
+    bests = search bots <$> bots'
+    classify p = (norm p, p, intersection bots p)
+
+search bots bot = go (p_ bot) (r_ bot)
+  where
+    go p r
+      | r < 20 = exhaust bots p 6 -- 2*r
+      | r > 400 =
+        let candidates = sample p r 5 30
+            best = maximumBy (comparing $ intersection bots) candidates
+            bestaround = exhaust bots best 4
+        in go bestaround $ traceShowId (r `div` 64)
+      | otherwise =
+        let candidates = sample p r 2 10
+            best = maximumBy (comparing $ intersection bots) candidates
+            bestaround = exhaust bots best 6
+        in go bestaround $ traceShowId (r `div` 4)
+
+exhaust bots p r = best
+  where ((xm,ym,zm),(xM,yM,zM)) = cube (Bot p r)
+        cubePoints = [ (x,y,z) | x<-[xm..xM], y<-[ym..yM], z<-[zm..zM] ]
+        best = maximumBy (comparing $ intersection bots) cubePoints
+
+intersection bots p = length [ undefined | b <- bots, p `inRange` b ]
+
+dist (x0,y0,z0) (x1,y1,z1) = abs (x0-x1) + abs (y0-y1) + abs (z0-z1)
+
+sample :: Point -> Int -> Int -> Int -> [Point]
+sample p r cubeRadius radiusSegments = (p :) $ concat
+  [ oct p r' ++ concatMap (\q -> cubeVerts q cubeRadius) (oct p r')
+  --[ concat [ oct p r', cubeVerts p r' ]
+  | let steps = L.nub $ [1,2,3] ++ [4,(4 + r `div` radiusSegments)+1..r+10]
+  , r' <- traceShow (length steps,(take 3 $ drop 3 steps,last steps)) steps ]
+--sample p r = (p :) $ concat
+--  [ oct p r'
+--  | r' <- [1,2,3] ++ [i^20 | i <- [5..truncate $ (fromIntegral r) ** (1/20)]] ]
+
+oct :: Point -> Int -> [Point]
+oct = (vertices .) . Bot
+
+cubeVerts :: Point -> Int -> [Point]
+cubeVerts p r = [ (x,y,z) | x <- [xm,xM], y <- [ym,yM], z <- [zm,zM] ]
+  where
+    ((xm,ym,zm),(xM,yM,zM))= cube (Bot p r)
 
 norm (x,y,z) = abs x + abs y + abs z
 
@@ -48,13 +77,12 @@ cube b = ((xm,ym,zm),(xM,yM,zM))
     (ym,yM) = (minimum ys,maximum ys)
     (zm,zM) = (minimum zs,maximum zs)
 
-counts :: [Bot] -> [(Int,Int)]
-counts = byRows . overlaps
+counts :: [Bot] -> [(Int,[Bot])]
+counts bots = byRows $ overlaps bots
   where
     byRows a =
-      [ (i, sum [ 1 | ((i',j),overlap) <- A.assocs a
-                    , i == i'
-                    , overlap ])
+      [ (i, [ bots !! j
+            | ((i',j),overlap) <- A.assocs a, i == i', overlap ])
       | i <- [im..iM] ]
       where
         ((im,_),(iM,_)) = A.bounds a
@@ -88,7 +116,7 @@ main = do
   bs <- fromString <$> readFile "input.txt"
   --let cs = counts bs
   --mapM_ print . L.sortBy (comparing snd) $ cs
-  print $ part2 bs
+  mapM_ print $ part2 bs
 
 -- part 1
 
