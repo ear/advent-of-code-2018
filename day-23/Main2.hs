@@ -18,42 +18,24 @@ type Overlaps = A.UArray (Int,Int) Bool
 
 -- part 2
 
+
+
+part2 _ = [()]
+
+walk bots p@(x,y,z) = minimumBy (comparing norm) [a,b,c]
+  where
+    a_n = last $ takeWhile (\n -> 891 <= intersection bots (x-3*n,y    ,z-3*n)) [0..]
+    a   = diff p (3*a_n,0    ,3*a_n)
+    b_n = last $ takeWhile (\n -> 891 <= intersection bots (x-3*n,y-3*n,z    )) [0..]
+    b   = diff p (3*b_n,3*b_n,0    )
+    c_n = last $ takeWhile (\n -> 891 <= intersection bots (x    ,y-3*n,z-3*n)) [0..]
+    c   = diff p (0    ,3*c_n,3*c_n)
+
 diff :: Point -> Point -> Point
 diff (x0,y0,z0) (x1,y1,z1) = (x0-x1,y0-y1,z0-z1)
 
 add :: Point -> Point -> Point
 add (x0,y0,z0) (x1,y1,z1) = (x0+x1,y0+y1,z0+z1)
-
--- part2 bots = classify bots $ exhaust bots (38076377,24301325,49744785) 10
---part2 bots = classify bots $ exhaust bots (38076367,24301322,49744775) 20
---part2 bots = classify bots $ exhaust bots (38076347,24301322,49744755) 20
-
-part2 bots = map (\p -> (norm p,p,intersection bots p)) $ iterate (\p -> exhaust bots p 1000000) (38075087,24301322,49743495) -- (38075387,24301322,49743795) -- (38076227,24301322,49744635) -- (38076347,24301322,49744755)
-
---part2 bots = L.sortBy (comparing (\(_,_,i) -> i)) $ classify <$> bests
---  where
---    --bots' = map ((bots !!) . fst) . take 80 . reverse . L.sortBy (comparing $ length . snd) . counts $ bots
---    bots' = take 80 . L.sortBy (comparing $ minimum . map norm . vertices) $ bots
---    bests = search bots <$> bots'
-
-classify bots p = (norm p, p, intersection bots p)
-
-search bots bot = go (p_ bot) (r_ bot)
-  where
-    go p r
-      | r < 20 = exhaust bots p 6 -- 2*r
-      | r > 400 =
-        let candidates = sample p r 5 30
-            best = maximumBy (comparing $ intersection bots) candidates
-            bestaround = exhaust bots best 4
-        in go bestaround $ traceShowId (r `div` 64)
-      | otherwise =
-        let candidates = sample p r 2 10
-            best = maximumBy (comparing $ intersection bots) candidates
-            bestaround = exhaust bots best 6
-        in go bestaround $ traceShowId (r `div` 4)
-
-
 
 exhaust' bots points = maximumBy (comparing (intersection bots) <> comparing (\p -> -1 * (norm p))) points
 
@@ -65,16 +47,6 @@ exhaust bots p r = best
 intersection bots p = length [ undefined | b <- bots, p `inRange` b ]
 
 dist (x0,y0,z0) (x1,y1,z1) = abs (x0-x1) + abs (y0-y1) + abs (z0-z1)
-
-sample :: Point -> Int -> Int -> Int -> [Point]
-sample p r cubeRadius radiusSegments = (p :) $ concat
-  [ oct p r' ++ concatMap (\q -> cubeVerts q cubeRadius) (oct p r')
-  --[ concat [ oct p r', cubeVerts p r' ]
-  | let steps = L.nub $ [1,2,3] ++ [4,(4 + r `div` radiusSegments)+1..r+10]
-  , r' <- traceShow (length steps,(take 3 $ drop 3 steps,last steps)) steps ]
---sample p r = (p :) $ concat
---  [ oct p r'
---  | r' <- [1,2,3] ++ [i^20 | i <- [5..truncate $ (fromIntegral r) ** (1/20)]] ]
 
 oct :: Point -> Int -> [Point]
 oct = (vertices .) . Bot
