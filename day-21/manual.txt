@@ -1,0 +1,37 @@
+# Machine
+
+6 registers: 0, 1, 2, 3, 4, 5
+
+# ip: instruction pointer
+
+Instruction pointer is bound to a register (the others behave normally.)
+
+After each instruction is executed the ip is set to the value of the bound register
+then it is incremented by one and execution proceeds to that instruction.
+
+The ip is 0 during the first instruction, 1 during the second, etc.
+
+If the ip ever points outside the program, the program halts. The ip starts at 0.
+
+# Opcodes (16)
+
+addr A B C	C = A + B		r(C) = r(A) + r(B)
+mulr A B C	C = A * B		r(C) = r(A) * r(B)
+banr A B C	C = A && B		r(C) = r(A) && r(B)
+borr A B C	C = A || B		r(C) = r(A) || r(B)
+
+addi A B C	C = A + 'B		r(C) = r(A) + B
+muli A B C	C = A * 'B		r(C) = r(A) + B
+bani A B C	C = A && 'B		r(C) = r(A) && B
+bori A B C	C = A || 'B		r(C) = r(A) || B
+
+setr A _ C	C = A			r(C) = r(A)
+seti A _ C	C = 'A			r(C) = A
+
+gtir A B C	C = ('A > B) ? 1 : 0	r(C) = A > r(B)
+gtri A B C	C = (A > 'B) ? 1 : 0	r(C) = r(A) > B
+gtrr A B C	C = (A > B) ? 1 : 0	r(C) = r(A) > r(B)
+
+eqir A B C	C = ('A == B) ? 1 : 0	r(C) = A == r(B)
+eqri A B C	C = (A == 'B) ? 1 : 0	r(C) = r(A) == B
+eqrr A B C	C = (A == B) ? 1 : 0	r(C) = r(A) == r(B)
